@@ -1,0 +1,150 @@
+using UnityEngine;
+using UnityEngine.EventSystems;
+
+public class Joystick : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler
+{
+    // ?????????????????????????????????????????
+    //  INSPECTOR
+    // ?????????????????????????????????????????
+    public enum JoystickType { Fixed, Floating, Dynamic }
+
+    [Header("Type")]
+    public JoystickType joystickType = JoystickType.Floating;
+
+    [Header("References")]
+    public RectTransform background;
+    public RectTransform knob;
+
+    [Header("Settings")]
+    [Tooltip("Bán kính t?i ?a knob di chuy?n (px)")]
+    public float handleRange = 80f;
+    [Tooltip("Khi Dynamic: background b?t ??u ?i theo khi knob v??t quá bán kính này")]
+    public float dynamicThreshold = 60f;
+    [Tooltip("Input nh? h?n giá tr? này b? b? qua")]
+    public float deadZone = 0.1f;
+
+    // ?????????????????????????????????????????
+    //  OUTPUT
+    // ?????????????????????????????????????????
+    /// <summary>Vector input (-1 ~ 1) ??c t? PlayerMovement</summary>
+    public Vector2 Input { get; private set; }
+    public bool IsTouching { get; private set; }
+
+    // ?????????????????????????????????????????
+    //  RUNTIME
+    // ?????????????????????????????????????????
+    private Canvas canvas;
+    private Vector2 bgOrigin;       // V? trí g?c Fixed / reset Floating
+
+    // ?????????????????????????????????????????
+    void Awake()
+    {
+        canvas = GetComponentInParent<Canvas>();
+        if (background == null) background = GetComponent<RectTransform>();
+        bgOrigin = background.anchoredPosition;
+
+        // Fixed ? luôn hi?n th? | Floating/Dynamic ? ?n ban ??u
+        SetVisible(joystickType == JoystickType.Fixed);
+    }
+
+    // ?????????????????????????????????????????
+    //  POINTER EVENTS
+    // ?????????????????????????????????????????
+
+    public void OnPointerDown(PointerEventData eventData)
+    {
+        IsTouching = true;
+
+        switch (joystickType)
+        {
+            case JoystickType.Fixed:
+                // Background c? ??nh, ch? c?n reset knob
+                knob.anchoredPosition = Vector2.zero;
+                break;
+
+            case JoystickType.Floating:
+            case JoystickType.Dynamic:
+                // Di chuy?n background ??n ch? ch?m
+                background.anchoredPosition = ScreenToAnchored(eventData.position);
+                knob.anchoredPosition = Vector2.zero;
+                SetVisible(true);
+                break;
+        }
+
+        OnDrag(eventData);
+    }
+
+    public void OnDrag(PointerEventData eventData)
+    {
+        // Convert v? trí ngón tay v? local space c?a background ? delta so v?i tâm (0,0)
+        Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            background, eventData.position, cam, out Vector2 delta);
+
+        float dist = delta.magnitude;
+        Vector2 dir = dist > 0 ? delta / dist : Vector2.zero;
+
+        if (joystickType == JoystickType.Dynamic && dist > dynamicThreshold)
+        {
+            // Background ?i theo ngón tay, gi? knob ? rìa threshold
+            Vector2 anchored = ScreenToAnchored(eventData.position);
+            background.anchoredPosition = anchored - dir * dynamicThreshold;
+            knob.anchoredPosition = dir * dynamicThreshold;
+        }
+        else
+        {
+            // Clamp knob trong handleRange
+            knob.anchoredPosition = dir * Mathf.Min(dist, handleRange);
+        }
+
+        // Tính input (-1 ~ 1)
+        Vector2 raw = knob.anchoredPosition / handleRange;
+        Input = raw.magnitude < deadZone ? Vector2.zero : raw;
+    }
+
+    public void OnPointerUp(PointerEventData eventData)
+    {
+        IsTouching = false;
+        Input = Vector2.zero;
+        knob.anchoredPosition = Vector2.zero;
+
+        switch (joystickType)
+        {
+            case JoystickType.Fixed:
+                // Không làm gì, background ? yên
+                break;
+
+            case JoystickType.Floating:
+            case JoystickType.Dynamic:
+                background.anchoredPosition = bgOrigin;
+                SetVisible(false);
+                break;
+        }
+    }
+
+    // ?????????????????????????????????????????
+    //  HELPERS
+    // ?????????????????????????????????????????
+
+    Vector2 ScreenToAnchored(Vector2 screenPos)
+    {
+        // Dùng parent c?a background ?? t?a ?? anchoredPosition kh?p chính xác
+        RectTransform parentRect = background.parent as RectTransform;
+        if (parentRect == null) parentRect = canvas.transform as RectTransform;
+
+        Camera cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+
+        RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            parentRect,
+            screenPos,
+            cam,
+            out Vector2 local);
+        return local;
+    }
+
+    void SetVisible(bool visible)
+    {
+        if (background != null)
+            background.gameObject.SetActive(visible);
+    }
+}
