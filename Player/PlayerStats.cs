@@ -45,7 +45,10 @@ public class PlayerStats : MonoBehaviour
             LevelUp();
         }
     }
-
+    void Update()
+    {
+        Debug.Log(currentHP);
+    }
     void LevelUp()
     {
         level++;
@@ -77,6 +80,7 @@ public class PlayerStats : MonoBehaviour
         if (currentHP != prev)
         {
             Debug.Log($"[Player] ❤️ Heal +{currentHP - prev} | HP: {currentHP}/{maxHP}");
+            
             OnHPChanged?.Invoke(currentHP, maxHP);
         }
     }
