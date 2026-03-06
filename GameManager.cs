@@ -28,6 +28,7 @@ public class GameManager : MonoBehaviour
         if (_characterManager == null)
         {
             Debug.LogError("GameManager: CharacterManager reference is not set in the inspector!");
+            Debug.LogError("Please assign the CharacterManager reference in the GameManager inspector.");
         }
     } 
 }
