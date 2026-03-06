@@ -59,6 +59,7 @@ public class PlayerMovement : MonoBehaviour
 
         if (joystick == null)
             joystick = FindFirstObjectByType<Joystick>();
+        Debug.Log(joystick);   
     }
 
     void Update()
@@ -79,8 +80,13 @@ public class PlayerMovement : MonoBehaviour
 
     void ReadInput()
     {
+         
         if (joystick != null && joystick.IsTouching)
+        {
             moveDir = joystick.Input;
+            Debug.Log($"Joystick input: {moveDir}");    
+        }
+           
         else
             // Fallback WASD để test trên Editor
             moveDir = new Vector2(

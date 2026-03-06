@@ -129,7 +129,6 @@ public class CharacterManager : MonoBehaviour
                 tempObj.GetComponent<BookCharacterSelector>().characterData = cl;
                 var headset = cl.characterIcon;
                 var headsetIns = Instantiate(headset, tempObj.transform);
-                headsetIns.gameObject.AddComponent<RectTransform>();
                 headsetIns.gameObject.GetComponent<RectTransform>().SetParent(tempObj.gameObject.GetComponent<RectTransform>());
                 headsetIns.gameObject.GetComponent<RectTransform>().anchoredPosition = tempObj.gameObject.GetComponent<RectTransform>().anchoredPosition;
                 headsetIns.gameObject.GetComponent<RectTransform>().localScale = new Vector3(80, 80, 80);
