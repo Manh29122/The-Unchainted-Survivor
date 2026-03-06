@@ -21,6 +21,10 @@ public class EnemyHealth : MonoBehaviour
     [Tooltip("Death effect prefab to spawn")]
     [SerializeField] private GameObject deathEffect;
 
+    [Header("Floating Text")]
+    [Tooltip("Prefab to show damage numbers (optional)")]
+    [SerializeField] private GameObject floatingTextPrefab;
+
     [Header("Events")]
     [Tooltip("Called when enemy takes damage")]
     public UnityEvent<float> onTakeDamage;
@@ -43,6 +47,15 @@ public class EnemyHealth : MonoBehaviour
 
         currentHealth -= damage;
         currentHealth = Mathf.Max(0, currentHealth); // Prevent negative health
+
+        // show damage number
+        if (floatingTextPrefab != null)
+        {
+            GameObject popup = Instantiate(floatingTextPrefab, transform.position, Quaternion.identity);
+            FloatingText ft = popup.GetComponent<FloatingText>();
+            if (ft != null)
+                ft.SetText(damage.ToString("F0"), Color.red);
+        }
 
         onTakeDamage?.Invoke(damage);
 

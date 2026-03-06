@@ -49,11 +49,14 @@ public class DashSkill : MonoBehaviour
     [SerializeField] private bool invincibleDuringDash = true;
 
     [Tooltip("Reference to player's health component")]
-    [SerializeField] private MonoBehaviour playerHealthComponent;
+    [SerializeField] private PlayerStats playerHealthComponent;
 
     [Header("Input")]
     [Tooltip("Key to trigger dash")]
     [SerializeField] private KeyCode dashKey = KeyCode.Space;
+
+    [Tooltip("Reference to joystick for directional dashing")]
+    [SerializeField] private Joystick joystick;
 
     // Private variables
     private bool isDashing = false;
@@ -82,6 +85,12 @@ public class DashSkill : MonoBehaviour
         if (audioSource == null)
         {
             audioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        // Find joystick if not assigned
+        if (joystick == null)
+        {
+            joystick = FindFirstObjectByType<Joystick>();
         }
 
         // Auto-calculate dash duration if not set
@@ -141,9 +150,17 @@ public class DashSkill : MonoBehaviour
     /// </summary>
     private Vector3 GetDashDirection()
     {
-        // For top-down games, dash in the direction the player is facing
-        // You can modify this based on your camera setup
-        return transform.forward.normalized;
+        // Check if joystick is available and being used
+        if (joystick != null && joystick.IsTouching && joystick.Input != Vector2.zero)
+        {
+            // Dash in the direction of joystick input
+            return new Vector3(joystick.Input.x, 0f, joystick.Input.y).normalized;
+        }
+        else
+        {
+            // Fallback: dash forward relative to player facing (for 2D top-down)
+            return transform.right.normalized; // Changed from forward to right for 2D
+        }
     }
 
     /// <summary>
@@ -303,9 +320,9 @@ public class DashSkill : MonoBehaviour
         // Try to find health component automatically if not assigned
         if (playerHealthComponent == null)
         {
-            playerHealthComponent = GetComponentInChildren<MonoBehaviour>();
+            playerHealthComponent = GetComponentInChildren<PlayerStats>();
             // Look for common health component names
-            var healthComponents = GetComponents<MonoBehaviour>()
+            var healthComponents = GetComponents<PlayerStats>()
                 .Where(c => c.GetType().Name.ToLower().Contains("health") ||
                            c.GetType().Name.ToLower().Contains("player"))
                 .ToArray();

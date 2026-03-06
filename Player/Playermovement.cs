@@ -84,7 +84,6 @@ public class PlayerMovement : MonoBehaviour
         if (joystick != null && joystick.IsTouching)
         {
             moveDir = joystick.Input;
-            Debug.Log($"Joystick input: {moveDir}");    
         }
            
         else

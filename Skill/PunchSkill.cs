@@ -12,6 +12,12 @@ public class PunchSkill : MonoBehaviour
     [Header("Health Restore")]
     [SerializeField] private int healthRestore = 10;
 
+    [Header("Knockback")]
+    [Tooltip("Force applied to enemies when hit")]
+    [SerializeField] private float knockbackForce = 20f;
+    [Tooltip("Duration of knockback in seconds")]
+    [SerializeField] private float knockbackDuration = 0.2f;
+
     [Header("Cooldown")]
     [SerializeField] private float cooldownTime = 3f;
 
@@ -20,8 +26,13 @@ public class PunchSkill : MonoBehaviour
     [SerializeField] private AudioClip punchSound;
     [SerializeField] private AudioClip hitSound;
 
+    [Tooltip("Prefab used to show damage numbers")]
+    [SerializeField] private GameObject floatingTextPrefab;
+
     [Header("Input")]
     [SerializeField] private KeyCode punchKey = KeyCode.Q;
+    [Tooltip("Optional joystick to aim punch direction")]
+    [SerializeField] private Joystick joystick;
 
     private bool isPunching = false;
     private bool canPunch = true;
@@ -46,6 +57,11 @@ public class PunchSkill : MonoBehaviour
         if (audioSource == null)
         {
             audioSource = gameObject.AddComponent<AudioSource>();
+        }
+
+        if (joystick == null)
+        {
+            joystick = FindFirstObjectByType<Joystick>();
         }
     }
 
@@ -83,12 +99,19 @@ public class PunchSkill : MonoBehaviour
         bool hitEnemy = false;
         int enemiesHit = 0;
 
+        // calculate forward vector from joystick or default facing
+        Vector2 forwardVec2 = transform.right;
+        if (joystick != null && joystick.IsTouching && joystick.Input != Vector2.zero)
+        {
+            forwardVec2 = joystick.Input.normalized;
+        }
+
         foreach (Collider2D collider in hitColliders)
         {
             if (collider.CompareTag("Enemy"))
             {
                 Vector2 dirToEnemy = (collider.transform.position - transform.position).normalized;
-                float angleToEnemy = Vector2.Angle(transform.right, dirToEnemy);
+                float angleToEnemy = Vector2.Angle(forwardVec2, dirToEnemy);
 
                 if (angleToEnemy <= punchAngle / 2f)
                 {
@@ -96,6 +119,26 @@ public class PunchSkill : MonoBehaviour
                     if (enemyHealth != null)
                     {
                         enemyHealth.TakeDamage(punchDamage);
+
+                        // show damage number
+                        if (floatingTextPrefab != null)
+                        {
+                            GameObject popup = Instantiate(floatingTextPrefab, collider.transform.position, Quaternion.identity);
+                            FloatingText ft = popup.GetComponent<FloatingText>();
+                            if (ft != null)
+                                ft.SetText(punchDamage.ToString(), Color.red);
+                        }
+
+                        // apply knockback if enemy has rigidbody
+                        Rigidbody2D enemyRb = collider.GetComponent<Rigidbody2D>();
+                        if (enemyRb != null)
+                        {
+                            Vector2 knockDir = (collider.transform.position - transform.position).normalized;
+                            enemyRb.linearVelocity = Vector2.zero; // reset existing motion
+                            // start short knockback coroutine
+                            StartCoroutine(ApplyKnockback(enemyRb, knockDir));
+                        }
+
                         hitEnemy = true;
                         enemiesHit++;
                         Debug.Log("Hit enemy for " + punchDamage + "!");
@@ -155,6 +198,23 @@ public class PunchSkill : MonoBehaviour
     public float GetCooldownRemaining()
     {
         return canPunch ? 0f : cooldownTime - (Time.time - lastPunchTime);
+    }
+
+    /// <summary>
+    /// Applies a short-duration velocity to the enemy then stops it.
+    /// </summary>
+    private IEnumerator ApplyKnockback(Rigidbody2D rb, Vector2 direction)
+    {
+        float elapsed = 0f;
+        // push for knockbackDuration seconds
+        while (elapsed < knockbackDuration)
+        {
+            rb.linearVelocity = direction * knockbackForce;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        // stop movement
+        rb.linearVelocity = Vector2.zero;
     }
 
     private void OnDrawGizmosSelected()
