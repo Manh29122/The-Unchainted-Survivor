@@ -9,6 +9,12 @@ public class PunchSkill : MonoBehaviour
     [SerializeField] private float punchRange = 3f;
     [SerializeField] private float punchAngle = 45f;
 
+    [Header("Multi-Direction Punch")]
+    [Tooltip("Number of punch directions (1 = single, 3 = spread, 5 = wide)")]
+    [SerializeField] private int punchDirections = 1;
+    [Tooltip("Angle spread between multiple punches (degrees)")]
+    [SerializeField] private float spreadAngle = 30f;
+
     [Header("Health Restore")]
     [SerializeField] private int healthRestore = 10;
 
@@ -42,6 +48,7 @@ public class PunchSkill : MonoBehaviour
     private Animator animator;
     private AudioSource audioSource;
 
+    public GameObject _firePunch;
     private void Awake()
     {
         playerStats = GetComponent<PlayerStats>();
@@ -87,6 +94,16 @@ public class PunchSkill : MonoBehaviour
         lastPunchTime = Time.time;
 
         PlayPunchEffects();
+        
+        // Get punch directions and spawn fire punches
+        Vector2 forwardVec2 = transform.right;
+        if (joystick != null && joystick.IsTouching && joystick.Input != Vector2.zero)
+        {
+            forwardVec2 = joystick.Input.normalized;
+        }
+        List<Vector2> punchDirs = GeneratePunchDirections(forwardVec2);
+        SpawnFirePunches(punchDirs);
+        
         PerformPunch();
         StartCoroutine(CompletePunch());
 
@@ -99,28 +116,39 @@ public class PunchSkill : MonoBehaviour
         bool hitEnemy = false;
         int enemiesHit = 0;
 
-        // calculate forward vector from joystick or default facing
         Vector2 forwardVec2 = transform.right;
         if (joystick != null && joystick.IsTouching && joystick.Input != Vector2.zero)
         {
             forwardVec2 = joystick.Input.normalized;
         }
 
+        List<Vector2> punchDirs = GeneratePunchDirections(forwardVec2);
+
+        Debug.Log(punchDirs.Count + " punch directions generated.");
         foreach (Collider2D collider in hitColliders)
         {
             if (collider.CompareTag("Enemy"))
             {
                 Vector2 dirToEnemy = (collider.transform.position - transform.position).normalized;
-                float angleToEnemy = Vector2.Angle(forwardVec2, dirToEnemy);
+                bool isInCone = false;
 
-                if (angleToEnemy <= punchAngle / 2f)
+                foreach (Vector2 punchDir in punchDirs)
+                {
+                    float angleToEnemy = Vector2.Angle(punchDir, dirToEnemy);
+                    if (angleToEnemy <= punchAngle / 2f)
+                    {
+                        isInCone = true;
+                        break;
+                    }
+                }
+
+                if (isInCone)
                 {
                     EnemyHealth enemyHealth = collider.GetComponent<EnemyHealth>();
                     if (enemyHealth != null)
                     {
                         enemyHealth.TakeDamage(punchDamage);
 
-                        // show damage number
                         if (floatingTextPrefab != null)
                         {
                             GameObject popup = Instantiate(floatingTextPrefab, collider.transform.position, Quaternion.identity);
@@ -129,13 +157,11 @@ public class PunchSkill : MonoBehaviour
                                 ft.SetText(punchDamage.ToString(), Color.red);
                         }
 
-                        // apply knockback if enemy has rigidbody
                         Rigidbody2D enemyRb = collider.GetComponent<Rigidbody2D>();
                         if (enemyRb != null)
                         {
                             Vector2 knockDir = (collider.transform.position - transform.position).normalized;
-                            enemyRb.linearVelocity = Vector2.zero; // reset existing motion
-                            // start short knockback coroutine
+                            enemyRb.linearVelocity = Vector2.zero;
                             StartCoroutine(ApplyKnockback(enemyRb, knockDir));
                         }
 
@@ -159,6 +185,40 @@ public class PunchSkill : MonoBehaviour
         }
     }
 
+    private List<Vector2> GeneratePunchDirections(Vector2 baseDirection)
+    {
+        List<Vector2> directions = new List<Vector2>();
+
+        if (punchDirections <= 1)
+        {
+            directions.Add(baseDirection);
+        }
+        else if (punchDirections == 2)
+        {
+            directions.Add(Rotate(baseDirection, spreadAngle / 2f));
+            directions.Add(Rotate(baseDirection, -spreadAngle / 2f));
+        }
+        else
+        {
+            float angleStep = spreadAngle / (punchDirections - 1);
+            for (int i = 0; i < punchDirections; i++)
+            {
+                float angle = (spreadAngle / 2f) - (i * angleStep);
+                directions.Add(Rotate(baseDirection, angle));
+            }
+        }
+
+        return directions;
+    }
+
+    private Vector2 Rotate(Vector2 v, float degrees)
+    {
+        float rad = degrees * Mathf.Deg2Rad;
+        float cos = Mathf.Cos(rad);
+        float sin = Mathf.Sin(rad);
+        return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
+    }
+
     private void PlayPunchEffects()
     {
         if (punchSound != null && audioSource != null)
@@ -169,6 +229,33 @@ public class PunchSkill : MonoBehaviour
         if (punchEffect != null)
         {
             punchEffect.Play();
+        }
+    }
+
+    /// <summary>
+    /// Spawns fire punch visuals for each punch direction
+    /// </summary>
+    private void SpawnFirePunches(List<Vector2> punchDirections)
+    {
+        if (_firePunch == null) return;
+
+        Debug.Log($"[SpawnFirePunches] Spawning {punchDirections.Count} fire punches");
+        
+        foreach (Vector2 dir in punchDirections)
+        {
+            // Position fire punch along the direction at mid-range with minimum distance to avoid overlap with player
+            float spawnDistance = Mathf.Max(punchRange * 0.6f, 1.5f);
+            Vector3 spawnPos = transform.position + (Vector3)dir * spawnDistance;
+            GameObject firePunch = Instantiate(_firePunch, spawnPos, Quaternion.identity, null);
+            
+            // Rotate to face punch direction
+            float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+            firePunch.transform.rotation = Quaternion.AngleAxis(angle, Vector3.forward);
+            
+            Debug.Log($"[SpawnFirePunches] Spawned at {spawnPos} with angle {angle}");
+            
+            // Destroy after a short time
+            Destroy(firePunch, 0.5f);
         }
     }
 
@@ -201,19 +288,134 @@ public class PunchSkill : MonoBehaviour
     }
 
     /// <summary>
-    /// Applies a short-duration velocity to the enemy then stops it.
+    /// Set number of punch directions
     /// </summary>
+    public void SetPunchDirections(int directions)
+    {
+        punchDirections = Mathf.Max(1, directions);
+        Debug.Log($"[PunchSkill] Punch directions set to: {punchDirections}");
+    }
+
+    /// <summary>
+    /// Set punch range
+    /// </summary>
+    public void SetPunchRange(float range)
+    {
+        punchRange = Mathf.Max(0.1f, range);
+        Debug.Log($"[PunchSkill] Punch range set to: {punchRange}");
+    }
+
+    /// <summary>
+    /// Adjust the punch range by a percentage of its current value.
+    /// For example, passing 200 will double the range, while 75 will reduce it to 75%.
+    /// Percent is clamped between 10 and 500 (10% to 5x).
+    /// </summary>
+    /// <param name="percent">Percentage of the original range to keep (10-500).</param>
+    public void SetPunchRangeByPercentage(float percent)
+    {
+        percent = Mathf.Clamp(percent, 10f, 500f);
+        punchRange *= percent / 100f;
+        Debug.Log($"[PunchSkill] Punch range adjusted by {percent}% of current value. New range: {punchRange}");
+    }
+
+    /// <summary>
+    /// Set punch damage
+    /// </summary>
+    public void SetPunchDamage(float damage)
+    {
+        punchDamage = Mathf.Max(0, damage);
+        Debug.Log($"[PunchSkill] Punch damage set to: {punchDamage}");
+    }
+
+    /// <summary>
+    /// Adjust the punch damage by a percentage of its current value.
+    /// For example, passing 150 will increase damage by 50%, while 50 will halve it.
+    /// Percent is clamped between 0 and 1000 (0 removes damage, 1000 is 10x).
+    /// </summary>
+    /// <param name="percent">Percentage of the original damage to keep (0-1000).</param>
+    public void SetPunchDamageByPercentage(float percent)
+    {
+        percent = Mathf.Clamp(percent, 0f, 1000f);
+        punchDamage *= percent / 100f;
+        Debug.Log($"[PunchSkill] Punch damage adjusted by {percent}% of current value. New damage: {punchDamage}");
+    }
+
+    /// <summary>
+    /// Decrease cooldown time
+    /// </summary>
+    public void DecreaseCooldown(float amount)
+    {
+        cooldownTime = Mathf.Max(0.1f, cooldownTime - amount);
+        Debug.Log($"[PunchSkill] Cooldown decreased by {amount}. New cooldown: {cooldownTime}");
+    }
+
+    /// <summary>
+    /// Set cooldown time directly
+    /// </summary>
+    public void SetCooldown(float time)
+    {
+        cooldownTime = Mathf.Max(0.1f, time);
+        Debug.Log($"[PunchSkill] Cooldown set to: {cooldownTime}");
+    }
+
+    /// <summary>
+    /// Adjust the cooldown by a percentage of its current value.
+    /// For example, passing 50 will cut the cooldown in half, while 200 will double it.
+    /// Percent is clamped between 0 and 100 (0 freezes the skill, 100 leaves it unchanged).
+    /// </summary>
+    /// <param name="percent">Percentage of the original cooldown to keep (0-100).</param>
+    public void SetCooldownByPercentage(float percent)
+    {
+        percent = Mathf.Clamp(percent, 0f, 100f);
+        cooldownTime *= percent / 100f;
+        Debug.Log($"[PunchSkill] Cooldown adjusted by {percent}% of current value. New cooldown: {cooldownTime}");
+    }
+
+    /// <summary>
+    /// Set fire punch visual size
+    /// </summary>
+    public void SetFirePunchSize(float size)
+    {
+        if (_firePunch != null)
+        {
+            _firePunch.transform.localScale = Vector3.one * Mathf.Max(0.1f, size);
+            Debug.Log($"[PunchSkill] Fire punch size set to: {size}");
+        }
+        else
+        {
+            Debug.LogWarning("[PunchSkill] Fire punch prefab not assigned!");
+        }
+    }
+
+    /// <summary>
+    /// Adjust the fire punch size by a percentage of its current value.
+    /// For example, passing 150 will increase size by 50%, while 50 will halve it.
+    /// Percent is clamped between 10 and 500 (10% to 5x).
+    /// </summary>
+    /// <param name="percent">Percentage of the original size to keep (10-500).</param>
+    public void SetFirePunchSizeByPercentage(float percent)
+    {
+        if (_firePunch != null)
+        {
+            percent = Mathf.Clamp(percent, 10f, 500f);
+            _firePunch.transform.localScale *= percent / 100f;
+            Debug.Log($"[PunchSkill] Fire punch size adjusted by {percent}% of current value. New size: {_firePunch.transform.localScale.x}");
+        }
+        else
+        {
+            Debug.LogWarning("[PunchSkill] Fire punch prefab not assigned!");
+        }
+    }
+
     private IEnumerator ApplyKnockback(Rigidbody2D rb, Vector2 direction)
     {
         float elapsed = 0f;
-        // push for knockbackDuration seconds
         while (elapsed < knockbackDuration)
         {
             rb.linearVelocity = direction * knockbackForce;
             elapsed += Time.deltaTime;
             yield return null;
         }
-        // stop movement
         rb.linearVelocity = Vector2.zero;
     }
 

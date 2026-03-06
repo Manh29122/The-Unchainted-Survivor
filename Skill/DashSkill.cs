@@ -299,6 +299,67 @@ public class DashSkill : MonoBehaviour
     }
 
     /// <summary>
+    /// Decrease cooldown time by amount
+    /// </summary>
+    public void DecreaseCooldown(float amount)
+    {
+        cooldownTime = Mathf.Max(0.1f, cooldownTime - amount);
+        Debug.Log($"[DashSkill] Cooldown decreased by {amount}. New cooldown: {cooldownTime}");
+    }
+
+    /// <summary>
+    /// Set cooldown time directly
+    /// </summary>
+    public void SetCooldown(float time)
+    {
+        cooldownTime = Mathf.Max(0.1f, time);
+        Debug.Log($"[DashSkill] Cooldown set to: {cooldownTime}");
+    }
+
+    /// <summary>
+    /// Adjust the cooldown by a percentage of its current value.
+    /// For example, passing 50 will cut the cooldown in half, while 200 will double it.
+    /// Percent is clamped between 0 and 100 (0 freezes the skill, 100 leaves it unchanged).
+    /// </summary>
+    /// <param name="percent">Percentage of the original cooldown to keep (0-100).</param>
+    public void SetCooldownByPercentage(float percent)
+    {
+        percent = Mathf.Clamp(percent, 0f, 100f);
+        cooldownTime *= percent / 100f;
+        Debug.Log($"[DashSkill] Cooldown adjusted by {percent}% of current value. New cooldown: {cooldownTime}");
+    }
+
+    /// <summary>
+    /// Set dash damage
+    /// </summary>
+    public void SetDashDamage(float damage)
+    {
+        dashDamage = Mathf.Max(0, damage);
+        Debug.Log($"[DashSkill] Dash damage set to: {dashDamage}");
+    }
+
+    /// <summary>
+    /// Set dash speed
+    /// </summary>
+    public void SetDashSpeed(float speed)
+    {
+        dashSpeed = Mathf.Max(0, speed);
+        Debug.Log($"[DashSkill] Dash speed set to: {dashSpeed}");
+    }
+
+    /// <summary>
+    /// Set dash distance
+    /// </summary>
+    public void SetDashDistance(float distance)
+    {
+        dashDistance = Mathf.Max(0, distance);
+        // recalc duration if necessary
+        if (dashSpeed > 0)
+            dashDuration = dashDistance / dashSpeed;
+        Debug.Log($"[DashSkill] Dash distance set to: {dashDistance}");
+    }
+
+    /// <summary>
     /// Forces the dash to end early (useful for stun effects, etc.)
     /// </summary>
     public void InterruptDash()

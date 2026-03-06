@@ -47,7 +47,7 @@ public class PlayerStats : MonoBehaviour
     }
     void Update()
     {
-        Debug.Log(currentHP);
+
     }
     void LevelUp()
     {
