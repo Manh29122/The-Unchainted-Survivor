@@ -310,7 +310,7 @@ public class CharacterManager : MonoBehaviour
         if (data == null) return;
         // Text
         characterNameTxt.text = data.characterName;
-        descriptionTxt.text = data.ActiveDescription;
+        //descriptionTxt.text = data.ActiveDescription;
         hpValueTxt.text = data.Health.ToString("F0");
         attackValueTxt.text = data.Attack.ToString("F0");
         armorValueTxt.text = data.Armor.ToString("F0");
