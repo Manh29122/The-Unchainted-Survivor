@@ -73,9 +73,15 @@ public class PickupItem : PooledObject
         if (playerTransform == null || data == null) return;
 
         float dist = Vector2.Distance(transform.position, playerTransform.position);
+        float effectivePickupRadius = data.pickupRadius;
+
+        if (playerStats != null)
+        {
+            effectivePickupRadius = Mathf.Max(data.pickupRadius, playerStats.GetPickupRadius());
+        }
 
         // 1. Kiểm tra thu thập (pickup radius)
-        if (dist <= data.pickupRadius)
+        if (dist <= effectivePickupRadius)
         {
             Collect();
             return;

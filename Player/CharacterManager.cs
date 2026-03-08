@@ -25,6 +25,7 @@ public class CharacterManager : MonoBehaviour
     [Tooltip("Vị trí spawn player khi chọn nhân vật")]
     public Transform spawnPoint;
     public float offsetY = 2f;
+    public Vector3 _localScale = new Vector3(3, 3, 3);
     // ─────────────────────────────────────────
     //  DATA
     // ─────────────────────────────────────────
@@ -179,7 +180,7 @@ public class CharacterManager : MonoBehaviour
         Vector3 spawnPos = new Vector3(spawnPoint.position.x, spawnPoint.position.y - offsetY, spawnPoint.position.z);
 
         GameObject tempObj = Instantiate(data.characterPrefab, spawnPos, Quaternion.identity);
-        tempObj.GetComponent<RectTransform>().localScale = new Vector3(4, 4, 4);
+        tempObj.GetComponent<RectTransform>().localScale = _localScale;
         CurrentPlayerObject = tempObj;
         CurrentPlayerObject.transform.SetParent(spawnPoint);
         CurrentPlayerObject.name = $"Player_{data.characterName}";

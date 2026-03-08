@@ -26,6 +26,14 @@ public class ItemData : ScriptableObject
     [Tooltip("Bán kính chạm để thu thập")]
     public float pickupRadius = 0.4f;
 
+    [Header("Temporary Bonus")]
+    [Tooltip("Loại buff tạm thời khi nhặt item")]
+    public TemporaryBonusType temporaryBonusType = TemporaryBonusType.None;
+    [Tooltip("Giá trị buff theo phần trăm. Ví dụ 50 = +50%")]
+    public float temporaryBonusPercent = 50f;
+    [Tooltip("Thời gian tồn tại buff tạm thời")]
+    public float temporaryBonusDuration = 5f;
+
     [Header("Visuals")]
     public Color glowColor = Color.yellow;
     [Tooltip("Thời gian nhấp nháy trước khi biến mất")]
@@ -38,4 +46,12 @@ public enum ItemType
     Gold,
     HP,
     PowerUp
+}
+
+public enum TemporaryBonusType
+{
+    None,
+    GoldMultiplier,
+    ExpMultiplier,
+    PickupRadiusMultiplier
 }
