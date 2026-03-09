@@ -211,7 +211,7 @@ public class ShopRerollSystem : MonoBehaviour
 
     private List<UnchaintedItemData> GetAvailableItems()
     {
-        return GetAvailableItems(null);
+        return GetAvailableItems(null, null);
     }
 
     private List<UnchaintedItemData> GetAvailableItems(HashSet<string> excludedItemIds, HashSet<UnchaintedItemData> excludedItems)

@@ -10,21 +10,27 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 019cc57c4d11253419f95454c856b4ea, type: 3}
-  m_Name: LitterPower
+  m_Name: JuideLeak
   m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
-  itemId: 1
+  itemId: 2
   itemName: Litter Power
   description: Grant a blessing with a bit of power.
   icon: {fileID: 2185167392590505104, guid: 502acb2015202b446a33819f00f7066e, type: 3}
-  tier: 1
+  tier: 0
   price: 5
   maxStacks: 300
   statModifiers:
-  - statType: 1
+  - statType: 11
+    value: 3
+    note: 
+  - statType: 21
     value: 1
-    note: In crease Healing by 1
-  - statType: 0
-    value: 5
-    note: Increase MaxHP by 5
+    note: 
+  - statType: 4
+    value: -1
+    note: 
+  - statType: 15
+    value: 1
+    note: 
   specialEffects:
   - {fileID: 0}
