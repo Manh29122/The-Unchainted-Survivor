@@ -47,12 +47,14 @@ public class PlayerMovement : MonoBehaviour
     private Rigidbody2D rb;
     private Animator animator;
     private Vector2 moveDir;
+    private Vector3 originalLocalScale;
 
     // ─────────────────────────────────────────
     void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         animator = GetComponent<Animator>();
+        originalLocalScale = transform.localScale;
 
         if (spriteRenderer == null)
             spriteRenderer = GetComponent<SpriteRenderer>();
@@ -114,8 +116,12 @@ public class PlayerMovement : MonoBehaviour
 
     void FlipSprite()
     {
-        if (spriteRenderer == null || Mathf.Abs(moveDir.x) < 0.01f) return;
-        spriteRenderer.flipX = moveDir.x < 0f;
+        if (Mathf.Abs(moveDir.x) < 0.01f) return;
+
+        Vector3 nextScale = transform.localScale;
+        float baseScaleX = Mathf.Abs(originalLocalScale.x);
+        nextScale.x = moveDir.x < 0f ? baseScaleX : -baseScaleX;
+        transform.localScale = nextScale;
     }
 
     // ─────────────────────────────────────────
