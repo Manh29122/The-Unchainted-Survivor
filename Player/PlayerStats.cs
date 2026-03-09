@@ -14,6 +14,8 @@ public class PlayerStats : MonoBehaviour
     public int expToNextLevel = 100;
     [Tooltip("Hệ số tăng exp mỗi level: expToNextLevel *= expScaling")]
     public float expScaling = 1.3f;
+    [SerializeField] private PlayerLevelCurveCalculator levelCalculator;
+    [SerializeField] private int totalExp = 0;
 
     [Header("Gold")]
     public int gold = 0;
@@ -46,21 +48,55 @@ public class PlayerStats : MonoBehaviour
     public event Action<int> OnGoldChanged;    // (total)
     public event Action<int, int> OnHPChanged;      // (current, max)
 
+    private void Awake()
+    {
+        if (levelCalculator == null)
+        {
+            levelCalculator = GetComponent<PlayerLevelCurveCalculator>();
+        }
+
+        if (levelCalculator != null)
+        {
+            RebuildTotalExpFromCurrentState();
+            SyncLevelStateFromTotalExp(false);
+        }
+    }
+
     // ─────────────────────────────────────────
     //  EXP & LEVEL
     // ─────────────────────────────────────────
     public void AddExp(int amount)
     {
         int finalAmount = Mathf.Max(0, Mathf.RoundToInt(amount * expMultiplier));
-        currentExp += finalAmount;
-        OnExpChanged?.Invoke(currentExp, expToNextLevel);
 
-        // Level up loop (phòng trường hợp nhận nhiều exp 1 lần)
-        while (currentExp >= expToNextLevel)
+        if (levelCalculator == null)
         {
-            currentExp -= expToNextLevel;
-            LevelUp();
+            currentExp += finalAmount;
+            OnExpChanged?.Invoke(currentExp, expToNextLevel);
+
+            while (currentExp >= expToNextLevel)
+            {
+                currentExp -= expToNextLevel;
+                LevelUp();
+            }
+
+            return;
         }
+
+        int previousLevel = level;
+        levelCalculator.AddExp(ref totalExp, finalAmount, out currentExp, out expToNextLevel);
+        SyncLevelStateFromTotalExp(true);
+
+        if (level > previousLevel)
+        {
+            for (int reachedLevel = previousLevel + 1; reachedLevel <= level; reachedLevel++)
+            {
+                Debug.Log($"[Player] ⭐ Level Up! → Lv.{reachedLevel} | Next: {expToNextLevel} exp");
+                OnLevelUp?.Invoke(reachedLevel);
+            }
+        }
+
+        OnExpChanged?.Invoke(currentExp, expToNextLevel);
     }
     void Update()
     {
@@ -75,6 +111,56 @@ public class PlayerStats : MonoBehaviour
         OnLevelUp?.Invoke(level);
 
         // TODO: Mở skill/upgrade menu ở đây
+    }
+
+    private void RebuildTotalExpFromCurrentState()
+    {
+        if (levelCalculator == null)
+        {
+            return;
+        }
+
+        totalExp = levelCalculator.GetTotalExpToReachLevel(level) + Mathf.Max(0, currentExp);
+    }
+
+    private void SyncLevelStateFromTotalExp(bool preserveCurrentLevelExp)
+    {
+        if (levelCalculator == null)
+        {
+            return;
+        }
+
+        level = levelCalculator.GetLevelFromTotalExp(totalExp);
+        expToNextLevel = levelCalculator.GetExpToNextLevel(totalExp);
+
+        if (preserveCurrentLevelExp)
+        {
+            currentExp = levelCalculator.GetCurrentLevelExp(totalExp);
+        }
+        else
+        {
+            currentExp = Mathf.Clamp(currentExp, 0, expToNextLevel);
+        }
+    }
+
+    public int GetTotalExp()
+    {
+        return totalExp;
+    }
+
+    public float GetExpProgress01()
+    {
+        if (levelCalculator == null)
+        {
+            if (expToNextLevel <= 0)
+            {
+                return 1f;
+            }
+
+            return Mathf.Clamp01((float)currentExp / expToNextLevel);
+        }
+
+        return levelCalculator.GetLevelProgress01(totalExp);
     }
 
     // ─────────────────────────────────────────

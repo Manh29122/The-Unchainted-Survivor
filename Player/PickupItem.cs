@@ -22,15 +22,23 @@ public class PickupItem : PooledObject
     private UnityEngine.Transform playerTransform;
     private PlayerStats playerStats;      // Nhận exp, gold, hp...
     private SpriteRenderer sr;
+    private Vector3 originalScale;
 
     private bool isBeingMagnetized = false;
+    private bool isCollected = false;
     private float despawnTimer;
     private Coroutine blinkCoroutine;
+    private Coroutine popInCoroutine;
+
+    [Header("Runtime Visual")]
+    [SerializeField] private float maxMagnetSpeed = 6f;
+    [SerializeField] private float collectEffectDuration = 0.12f;
 
     // ─────────────────────────────────────────
     void Awake()
     {
         sr = GetComponent<SpriteRenderer>();
+        originalScale = transform.localScale;
     }
 
     // ─────────────────────────────────────────
@@ -39,8 +47,11 @@ public class PickupItem : PooledObject
     protected override void OnActivated()
     {
         isBeingMagnetized = false;
+        isCollected = false;
         despawnTimer = data != null ? data.despawnTime : 15f;
         sr.color = Color.white;
+        sr.enabled = true;
+        transform.localScale = originalScale;
 
         // Cache player reference
         if (playerTransform == null)
@@ -54,15 +65,25 @@ public class PickupItem : PooledObject
         }
 
         // Hiệu ứng pop-in nhỏ
-        StartCoroutine(PopIn());
+        if (popInCoroutine != null)
+        {
+            StopCoroutine(popInCoroutine);
+        }
+
+        popInCoroutine = StartCoroutine(PopIn());
     }
 
     protected override void OnDeactivated()
     {
         if (blinkCoroutine != null)
             StopCoroutine(blinkCoroutine);
+        if (popInCoroutine != null)
+            StopCoroutine(popInCoroutine);
         sr.color = Color.white;
+        sr.enabled = true;
+        transform.localScale = originalScale;
         isBeingMagnetized = false;
+        isCollected = false;
     }
 
     // ─────────────────────────────────────────
@@ -70,7 +91,7 @@ public class PickupItem : PooledObject
     // ─────────────────────────────────────────
     void Update()
     {
-        if (playerTransform == null || data == null) return;
+        if (isCollected || playerTransform == null || data == null) return;
 
         float dist = Vector2.Distance(transform.position, playerTransform.position);
         float effectivePickupRadius = data.pickupRadius;
@@ -96,7 +117,10 @@ public class PickupItem : PooledObject
         // 3. Hút về player nếu đang bị magnetize
         if (isBeingMagnetized)
         {
-            float speed = data.magnetSpeed * (1f + (data.magnetRadius - dist) / data.magnetRadius);
+            float magnetFactor = data.magnetRadius > 0f
+                ? Mathf.Clamp01((data.magnetRadius - dist) / data.magnetRadius)
+                : 0f;
+            float speed = Mathf.Lerp(data.magnetSpeed, maxMagnetSpeed, magnetFactor);
             transform.position = Vector2.MoveTowards(
                 transform.position,
                 playerTransform.position,
@@ -118,9 +142,29 @@ public class PickupItem : PooledObject
     // ─────────────────────────────────────────
     void Collect()
     {
+        if (isCollected)
+        {
+            return;
+        }
+
+        isCollected = true;
+        isBeingMagnetized = false;
+
+        if (blinkCoroutine != null)
+        {
+            StopCoroutine(blinkCoroutine);
+            blinkCoroutine = null;
+        }
+
+        if (popInCoroutine != null)
+        {
+            StopCoroutine(popInCoroutine);
+            popInCoroutine = null;
+        }
+
         if (playerStats == null || data == null)
         {
-            ReturnToPool();
+            DespawnItem();
             return;
         }
 
@@ -160,25 +204,35 @@ public class PickupItem : PooledObject
         {
             t += Time.deltaTime * 8f;
             // Overshoot nhẹ cho cảm giác bouncy
-            transform.localScale = Vector3.one * Mathf.LerpUnclamped(0f, 1f,
+            transform.localScale = originalScale * Mathf.LerpUnclamped(0f, 1f,
                 EaseOutBack(t));
             yield return null;
         }
-        transform.localScale = Vector3.one;
+        transform.localScale = originalScale;
+        popInCoroutine = null;
     }
 
     IEnumerator CollectEffect()
     {
-        // Flash màu rồi scale về 0
+        Vector3 startPos = transform.position;
+        Vector3 targetPos = playerTransform != null ? playerTransform.position : transform.position;
+        Vector3 boostedScale = originalScale * 1.25f;
+
         sr.color = data.glowColor;
         float t = 0f;
-        while (t < 1f)
+        while (t < collectEffectDuration)
         {
-            t += Time.deltaTime * 12f;
-            transform.localScale = Vector3.one * (1f - t);
+            t += Time.deltaTime;
+            float normalized = Mathf.Clamp01(t / Mathf.Max(0.01f, collectEffectDuration));
+            transform.position = Vector3.Lerp(startPos, targetPos, normalized);
+            transform.localScale = Vector3.Lerp(boostedScale, Vector3.zero, normalized);
+            Color color = data.glowColor;
+            color.a = 1f - normalized;
+            sr.color = color;
             yield return null;
         }
-        ReturnToPool();
+
+        DespawnItem();
     }
 
     IEnumerator BlinkBeforeDespawn()
@@ -202,6 +256,17 @@ public class PickupItem : PooledObject
         const float c1 = 1.70158f;
         const float c3 = c1 + 1f;
         return 1f + c3 * Mathf.Pow(t - 1f, 3f) + c1 * Mathf.Pow(t - 1f, 2f);
+    }
+
+    void DespawnItem()
+    {
+        if (OwnerPool != null)
+        {
+            ReturnToPool();
+            return;
+        }
+
+        Destroy(gameObject);
     }
 
     // ─────────────────────────────────────────
