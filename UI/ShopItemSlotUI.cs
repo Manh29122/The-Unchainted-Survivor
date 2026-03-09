@@ -26,11 +26,11 @@ public class ShopItemSlotUI : MonoBehaviour
     [SerializeField] private bool applyTierColorToTierLabel = true;
     [SerializeField] private List<TierColorEntry> tierColors = new List<TierColorEntry>
     {
-        new TierColorEntry { tier = ItemTier.Tier1, color = Color.white },
-        new TierColorEntry { tier = ItemTier.Tier2, color = new Color(0.4f, 0.8f, 1f) },
-        new TierColorEntry { tier = ItemTier.Tier3, color = new Color(0.7f, 0.4f, 1f) },
-        new TierColorEntry { tier = ItemTier.Tier4, color = new Color(1f, 0.7f, 0.2f) },
-        new TierColorEntry { tier = ItemTier.Legendary, color = new Color(1f, 0.45f, 0.1f) }
+        new TierColorEntry { tier = ItemTier.Tier1, color = new Color(0.55f, 0.9f, 0.2f) },
+        new TierColorEntry { tier = ItemTier.Tier2, color = new Color(0.1f, 0.75f, 0.2f) },
+        new TierColorEntry { tier = ItemTier.Tier3, color = new Color(1f, 0.85f, 0.2f) },
+        new TierColorEntry { tier = ItemTier.Tier4, color = new Color(1f, 0.55f, 0.15f) },
+        new TierColorEntry { tier = ItemTier.Legendary, color = new Color(0.9f, 0.2f, 0.2f) }
     };
 
     private ShopRerollSystem shopSystem;
@@ -52,6 +52,7 @@ public class ShopItemSlotUI : MonoBehaviour
         currentItem = itemData;
 
         bool hasItem = itemData != null;
+        Color tierColor = hasItem ? GetTierColor(itemData.tier) : Color.white;
         gameObject.SetActive(true);
 
         if (iconImage != null)
@@ -65,7 +66,7 @@ public class ShopItemSlotUI : MonoBehaviour
             nameText.text = hasItem ? itemData.itemName : "Empty";
             if (hasItem && applyTierColorToName)
             {
-                nameText.color = GetTierColor(itemData.tier);
+                nameText.color = tierColor;
             }
         }
 
@@ -79,7 +80,7 @@ public class ShopItemSlotUI : MonoBehaviour
             tierText.text = hasItem ? itemData.tier.ToString() : string.Empty;
             if (hasItem && applyTierColorToTierLabel)
             {
-                tierText.color = GetTierColor(itemData.tier);
+                tierText.color = tierColor;
             }
         }
 

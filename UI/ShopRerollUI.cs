@@ -27,7 +27,12 @@ public class ShopRerollUI : MonoBehaviour
 
         if (rerollButton != null)
         {
-            rerollButton.onClick.AddListener(HandleRerollButton);
+            rerollButton.gameObject.SetActive(false);
+        }
+
+        if (rerollCostText != null)
+        {
+            rerollCostText.gameObject.SetActive(false);
         }
     }
 
@@ -70,20 +75,6 @@ public class ShopRerollUI : MonoBehaviour
         shopSystem.OnRerollFailed -= HandleRerollFailed;
         shopSystem.OnPurchaseFailed -= HandlePurchaseFailed;
         shopSystem.OnItemPurchased -= HandleItemPurchased;
-    }
-
-    private void HandleRerollButton()
-    {
-        if (shopSystem == null)
-        {
-            return;
-        }
-
-        bool success = shopSystem.TryReroll();
-        if (success)
-        {
-            SetFeedback(string.Empty);
-        }
     }
 
     private void RefreshOffers(List<UnchaintedItemData> offers)

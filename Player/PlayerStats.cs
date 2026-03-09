@@ -297,12 +297,26 @@ public class PlayerStats : MonoBehaviour
             return;
         }
 
-        currentHP = Mathf.Max(0, currentHP - validDamage);
+        int mitigatedDamage = GetDamageAfterArmor(validDamage);
+        currentHP = Mathf.Max(0, currentHP - mitigatedDamage);
         OnHPChanged?.Invoke(currentHP, maxHP);
         NotifyStatsChanged();
 
         if (currentHP <= 0)
             OnDead();
+    }
+
+    public int GetDamageAfterArmor(int incomingDamage)
+    {
+        int validDamage = Mathf.Max(0, incomingDamage);
+        if (validDamage <= 0)
+        {
+            return 0;
+        }
+
+        float damageMultiplier = 100f / (100f + armor);
+        int mitigatedDamage = Mathf.RoundToInt(validDamage * damageMultiplier);
+        return Mathf.Max(1, mitigatedDamage);
     }
 
     void OnDead() => Debug.Log("[Player] 💀 Dead!");

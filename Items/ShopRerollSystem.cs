@@ -93,7 +93,7 @@ public class ShopRerollSystem : MonoBehaviour
             return false;
         }
 
-        currentOffers.RemoveAt(offerIndex);
+        currentOffers[offerIndex] = RollReplacementItem(offerIndex, item);
         NotifyOffersChanged();
         OnItemPurchased?.Invoke(item);
         return true;
@@ -211,11 +211,21 @@ public class ShopRerollSystem : MonoBehaviour
 
     private List<UnchaintedItemData> GetAvailableItems()
     {
+        return GetAvailableItems(null);
+    }
+
+    private List<UnchaintedItemData> GetAvailableItems(HashSet<string> excludedItemIds, HashSet<UnchaintedItemData> excludedItems)
+    {
         List<UnchaintedItemData> availableItems = new List<UnchaintedItemData>();
 
         foreach (UnchaintedItemData item in itemPool)
         {
             if (item == null)
+            {
+                continue;
+            }
+
+            if (IsExcludedItem(item, excludedItemIds, excludedItems))
             {
                 continue;
             }
@@ -229,6 +239,33 @@ public class ShopRerollSystem : MonoBehaviour
         }
 
         return availableItems;
+    }
+
+    private UnchaintedItemData RollReplacementItem(int replacedOfferIndex, UnchaintedItemData previousItem)
+    {
+        HashSet<string> excludedItemIds = new HashSet<string>(StringComparer.Ordinal);
+        HashSet<UnchaintedItemData> excludedItems = new HashSet<UnchaintedItemData>();
+
+        AddExcludedItem(previousItem, excludedItemIds, excludedItems);
+
+        for (int i = 0; i < currentOffers.Count; i++)
+        {
+            if (i == replacedOfferIndex)
+            {
+                continue;
+            }
+
+            UnchaintedItemData shownItem = currentOffers[i];
+            AddExcludedItem(shownItem, excludedItemIds, excludedItems);
+        }
+
+        List<UnchaintedItemData> availableItems = GetAvailableItems(excludedItemIds, excludedItems);
+        if (availableItems.Count == 0)
+        {
+            return null;
+        }
+
+        return RollSingleItem(availableItems);
     }
 
     private UnchaintedItemData RollSingleItem(List<UnchaintedItemData> pool)
@@ -283,5 +320,36 @@ public class ShopRerollSystem : MonoBehaviour
     private float GetTierWeightValue(TierWeight tierWeight, float luck)
     {
         return Mathf.Max(0f, tierWeight.baseWeight + (tierWeight.luckWeightBonus * luck));
+    }
+
+    private void AddExcludedItem(UnchaintedItemData item, HashSet<string> excludedItemIds, HashSet<UnchaintedItemData> excludedItems)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.itemId))
+        {
+            excludedItemIds?.Add(item.itemId.Trim());
+            return;
+        }
+
+        excludedItems?.Add(item);
+    }
+
+    private bool IsExcludedItem(UnchaintedItemData item, HashSet<string> excludedItemIds, HashSet<UnchaintedItemData> excludedItems)
+    {
+        if (item == null)
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(item.itemId))
+        {
+            return excludedItemIds != null && excludedItemIds.Contains(item.itemId.Trim());
+        }
+
+        return excludedItems != null && excludedItems.Contains(item);
     }
 }

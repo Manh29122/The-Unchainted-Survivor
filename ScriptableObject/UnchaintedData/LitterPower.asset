@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: LitterPower
   m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
   itemId: 1
-  itemName: 
-  description: 
+  itemName: Litter Power
+  description: Grant a blessing with a bit of power.
   icon: {fileID: 2185167392590505104, guid: 502acb2015202b446a33819f00f7066e, type: 3}
   tier: 0
-  price: 25
-  maxStacks: 1
+  price: 5
+  maxStacks: 300
   statModifiers:
   - statType: 1
     value: 1
