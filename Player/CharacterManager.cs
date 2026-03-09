@@ -2,6 +2,7 @@
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Load tất cả CharacterData từ Resources, quản lý bằng List + Dictionary.
@@ -24,8 +25,15 @@ public class CharacterManager : MonoBehaviour
     [Header("Spawn")]
     [Tooltip("Vị trí spawn player khi chọn nhân vật")]
     public Transform spawnPoint;
+    [Tooltip("Tên object spawn trong scene mới nếu reference cũ bị mất")]
+    public string spawnPointName = "SpawnPoint";
+    [Tooltip("Tag của spawn point trong scene mới")]
+    public string spawnPointTag = "PlayerSpawnPoint";
+    [Tooltip("Tự tạo lại prefab character đã chọn khi sang scene mới")]
+    public bool respawnSelectedCharacterOnSceneLoad = true;
     public float offsetY = 2f;
-    public Vector3 _localScale = new Vector3(3, 3, 3);
+    public Vector3 selectionScale = new Vector3(4f, 4f, 4f);
+    public Vector3 sceneSpawnScale = Vector3.one;
     // ─────────────────────────────────────────
     //  DATA
     // ─────────────────────────────────────────
@@ -69,15 +77,22 @@ public class CharacterManager : MonoBehaviour
     {
         //if (Instance != null) { Destroy(gameObject); return; }
         //Instance = this;
-        if(spawnPoint == null)
-        {
-            Debug.Log("spawnPoint is null");
-            return;
-        }
         DontDestroyOnLoad(gameObject);
+        SceneManager.sceneLoaded += OnSceneLoaded;
         LoadAllCharacters();
-        SpawnUIChooseCharacter();
 
+        if (_content != null && _childContent != null)
+        {
+            SpawnUIChooseCharacter();
+        }
+
+        RefreshSpawnPoint();
+
+    }
+
+    private void OnDestroy()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     // ─────────────────────────────────────────
@@ -160,6 +175,11 @@ public class CharacterManager : MonoBehaviour
     /// </summary>
     public void ApplyCharacter(CharacterData data)
     {
+        ApplyCharacter(data, false);
+    }
+
+    private void ApplyCharacter(CharacterData data, bool spawnForGameplayScene)
+    {
         if (data == null)
         {
             Debug.LogError("[CharacterManager] ApplyCharacter: data là null!");
@@ -172,27 +192,119 @@ public class CharacterManager : MonoBehaviour
             return;
         }
 
+        SelectedCharacter = data;
+
+        bool hasSpawnPoint = RefreshSpawnPoint();
+
+        if (!hasSpawnPoint)
+        {
+            Debug.LogWarning("[CharacterManager] Không tìm thấy spawn point, sẽ tạo character tại (0,0,0).");
+        }
+
         // Xoá player cũ
         if (CurrentPlayerObject != null)
             Destroy(CurrentPlayerObject);
 
         // Spawn player mới
-        Vector3 spawnPos = new Vector3(spawnPoint.position.x, spawnPoint.position.y - offsetY, spawnPoint.position.z);
+        Vector3 spawnPos = hasSpawnPoint
+            ? new Vector3(spawnPoint.position.x, spawnPoint.position.y - offsetY, spawnPoint.position.z)
+            : Vector3.zero;
 
         GameObject tempObj = Instantiate(data.characterPrefab, spawnPos, Quaternion.identity);
-        tempObj.GetComponent<RectTransform>().localScale = _localScale;
         CurrentPlayerObject = tempObj;
-        CurrentPlayerObject.transform.SetParent(spawnPoint);
+
+        if (hasSpawnPoint)
+        {
+            CurrentPlayerObject.transform.SetParent(spawnPoint);
+        }
+
+        CurrentPlayerObject.transform.localScale = spawnForGameplayScene ? sceneSpawnScale : selectionScale;
+
         CurrentPlayerObject.name = $"Player_{data.characterName}";
-
-
-        SelectedCharacter = data;
 
         // Áp dụng stats vào các component của player
         ApplyStatsToPlayer(CurrentPlayerObject, data);
         Display(data);
         Debug.Log($"[CharacterManager] ✅ Đã chọn nhân vật: {data.characterName}");
         OnCharacterApplied?.Invoke(data);
+    }
+
+    private void OnSceneLoaded(Scene scene, LoadSceneMode loadSceneMode)
+    {
+        if (!respawnSelectedCharacterOnSceneLoad)
+        {
+            return;
+        }
+
+        RefreshSpawnPoint();
+
+        if (SelectedCharacter == null)
+        {
+            SelectedCharacter = GetRandomCharacter();
+
+            if (SelectedCharacter == null)
+            {
+                Debug.LogWarning("[CharacterManager] Không có character nào để spawn ngẫu nhiên.");
+                return;
+            }
+
+            Debug.Log($"[CharacterManager] Chưa chọn character, dùng ngẫu nhiên: {SelectedCharacter.characterName}");
+        }
+
+        ApplyCharacter(SelectedCharacter, true);
+    }
+
+    private CharacterData GetRandomCharacter()
+    {
+        if (CharacterList == null || CharacterList.Count == 0)
+        {
+            return null;
+        }
+
+        int randomIndex = Random.Range(0, CharacterList.Count);
+        return CharacterList[randomIndex];
+    }
+
+    private bool RefreshSpawnPoint()
+    {
+        if (spawnPoint != null && spawnPoint.gameObject.scene.IsValid())
+        {
+            return true;
+        }
+
+        spawnPoint = null;
+
+        if (!string.IsNullOrWhiteSpace(spawnPointTag))
+        {
+            GameObject taggedSpawn = null;
+
+            try
+            {
+                taggedSpawn = GameObject.FindGameObjectWithTag(spawnPointTag);
+            }
+            catch (UnityException)
+            {
+                Debug.LogWarning($"[CharacterManager] Tag '{spawnPointTag}' chưa được tạo trong Tag Manager, bỏ qua tìm bằng tag.");
+            }
+
+            if (taggedSpawn != null)
+            {
+                spawnPoint = taggedSpawn.transform;
+                return true;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(spawnPointName))
+        {
+            GameObject namedSpawn = GameObject.Find(spawnPointName);
+            if (namedSpawn != null)
+            {
+                spawnPoint = namedSpawn.transform;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Overload: chọn theo tên</summary>
