@@ -49,17 +49,14 @@ public class ShopRerollSystem : MonoBehaviour
 
     private void Awake()
     {
-        if (playerStats == null)
-        {
-            playerStats = GetComponent<PlayerStats>();
-        }
-
-        if (playerInventory == null)
-        {
-            playerInventory = GetComponent<PlayerItemInventory>();
-        }
+        ResolveReferences();
 
         ResetRerollCost();
+    }
+
+    private void OnEnable()
+    {
+        ResolveReferences();
     }
 
     public void RollInitialOffers()
@@ -69,6 +66,8 @@ public class ShopRerollSystem : MonoBehaviour
 
     public bool TryBuyOfferAt(int offerIndex)
     {
+        ResolveReferences();
+
         if (offerIndex < 0 || offerIndex >= currentOffers.Count)
         {
             return false;
@@ -102,6 +101,8 @@ public class ShopRerollSystem : MonoBehaviour
 
     public bool TryReroll()
     {
+        ResolveReferences();
+
         if (playerStats == null)
         {
             Debug.LogWarning("[ShopRerollSystem] PlayerStats not found.");
@@ -129,6 +130,41 @@ public class ShopRerollSystem : MonoBehaviour
     public void SetItemPool(List<UnchaintedItemData> items)
     {
         itemPool = items ?? new List<UnchaintedItemData>();
+    }
+
+    public void ResolveReferences()
+    {
+        if (playerStats == null)
+        {
+            playerStats = GetComponent<PlayerStats>();
+        }
+
+        if (playerInventory == null)
+        {
+            playerInventory = GetComponent<PlayerItemInventory>();
+        }
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+
+        if (playerStats == null && playerObject != null)
+        {
+            playerStats = playerObject.GetComponent<PlayerStats>();
+        }
+
+        if (playerInventory == null && playerObject != null)
+        {
+            playerInventory = playerObject.GetComponent<PlayerItemInventory>();
+        }
+
+        if (playerStats == null)
+        {
+            playerStats = FindFirstObjectByType<PlayerStats>();
+        }
+
+        if (playerInventory == null)
+        {
+            playerInventory = FindFirstObjectByType<PlayerItemInventory>();
+        }
     }
 
     private void GenerateOffers()

@@ -10,18 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 019cc57c4d11253419f95454c856b4ea, type: 3}
-  m_Name: IncreaseTest
+  m_Name: LitterPower
   m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
-  itemId: 
+  itemId: 1
   itemName: 
   description: 
-  icon: {fileID: 0}
+  icon: {fileID: 2185167392590505104, guid: 502acb2015202b446a33819f00f7066e, type: 3}
   tier: 0
   price: 25
   maxStacks: 1
   statModifiers:
+  - statType: 1
+    value: 1
+    note: In crease Healing by 1
   - statType: 0
-    value: 0
-    note: 
+    value: 5
+    note: Increase MaxHP by 5
   specialEffects:
   - {fileID: 0}

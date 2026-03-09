@@ -73,6 +73,7 @@ public class PlayerStats : MonoBehaviour
     public float hpRegen = 0f;
     public float armor = 0f;
     public float dodge = 0f;
+    [Range(0f, 100f)] public float maxDodgeChance = 60f;
     public float moveSpeedBonus = 0f;
     public float luck = 0f;
     public float harvesting = 0f;
@@ -101,6 +102,7 @@ public class PlayerStats : MonoBehaviour
     public event Action<int> OnGoldChanged;    // (total)
     public event Action<int, int> OnHPChanged;      // (current, max)
     public event Action OnStatsChanged;
+    public event Action<int> OnDamageDodged;
 
     private void Awake()
     {
@@ -116,6 +118,7 @@ public class PlayerStats : MonoBehaviour
         }
 
         currentHP = Mathf.Clamp(currentHP, 0, maxHP);
+        dodge = Mathf.Clamp(dodge, 0f, maxDodgeChance);
         OnHPChanged?.Invoke(currentHP, maxHP);
         NotifyStatsChanged();
     }
@@ -283,7 +286,18 @@ public class PlayerStats : MonoBehaviour
 
     public void TakeDamage(int damage)
     {
-        currentHP = Mathf.Max(0, currentHP - damage);
+        int validDamage = Mathf.Max(0, damage);
+        if (validDamage <= 0)
+        {
+            return;
+        }
+
+        if (TryDodge(validDamage))
+        {
+            return;
+        }
+
+        currentHP = Mathf.Max(0, currentHP - validDamage);
         OnHPChanged?.Invoke(currentHP, maxHP);
         NotifyStatsChanged();
 
@@ -338,6 +352,26 @@ public class PlayerStats : MonoBehaviour
         }
 
         return Mathf.Clamp01((float)currentHP / maxHP);
+    }
+
+    public bool TryDodge(int incomingDamage = 0)
+    {
+        float clampedDodge = Mathf.Clamp(dodge, 0f, maxDodgeChance);
+        if (clampedDodge <= 0f)
+        {
+            return false;
+        }
+
+        float randomRoll = UnityEngine.Random.Range(0f, 100f);
+        bool dodged = randomRoll < clampedDodge;
+
+        if (dodged)
+        {
+            Debug.Log($"[Player] 🌀 Dodged hit! Chance: {clampedDodge:0.##}% | Incoming damage: {incomingDamage}");
+            OnDamageDodged?.Invoke(incomingDamage);
+        }
+
+        return dodged;
     }
 
     // ─────────────────────────────────────────
@@ -470,7 +504,7 @@ public class PlayerStats : MonoBehaviour
                 armor += amount;
                 break;
             case PlayerStatType.Dodge:
-                dodge = Mathf.Clamp(dodge + amount, 0f, 100f);
+                dodge = Mathf.Clamp(dodge + amount, 0f, maxDodgeChance);
                 break;
             case PlayerStatType.MoveSpeed:
                 moveSpeedBonus += amount;
@@ -539,4 +573,92 @@ public class PlayerStats : MonoBehaviour
 
         NotifyStatsChanged();
     }
+
+    public void IncreaseStat(PlayerStatType statType, float amount)
+    {
+        ModifyStat(statType, Mathf.Abs(amount));
+    }
+
+    public void DecreaseStat(PlayerStatType statType, float amount)
+    {
+        ModifyStat(statType, -Mathf.Abs(amount));
+    }
+
+    public void SetStatValue(PlayerStatType statType, float value)
+    {
+        float currentValue = GetStatValue(statType);
+        ModifyStat(statType, value - currentValue);
+    }
+
+    public void IncreaseArmor(float amount) => IncreaseStat(PlayerStatType.Armor, amount);
+    public void DecreaseArmor(float amount) => DecreaseStat(PlayerStatType.Armor, amount);
+
+    public void IncreaseDodge(float amount) => IncreaseStat(PlayerStatType.Dodge, amount);
+    public void DecreaseDodge(float amount) => DecreaseStat(PlayerStatType.Dodge, amount);
+
+    public void IncreaseMoveSpeed(float amount) => IncreaseStat(PlayerStatType.MoveSpeed, amount);
+    public void DecreaseMoveSpeed(float amount) => DecreaseStat(PlayerStatType.MoveSpeed, amount);
+
+    public void IncreaseDamagePercent(float amount) => IncreaseStat(PlayerStatType.DamagePercent, amount);
+    public void DecreaseDamagePercent(float amount) => DecreaseStat(PlayerStatType.DamagePercent, amount);
+
+    public void IncreaseMeleeDamage(float amount) => IncreaseStat(PlayerStatType.MeleeDamage, amount);
+    public void DecreaseMeleeDamage(float amount) => DecreaseStat(PlayerStatType.MeleeDamage, amount);
+
+    public void IncreaseRangedDamage(float amount) => IncreaseStat(PlayerStatType.RangedDamage, amount);
+    public void DecreaseRangedDamage(float amount) => DecreaseStat(PlayerStatType.RangedDamage, amount);
+
+    public void IncreaseElementalDamage(float amount) => IncreaseStat(PlayerStatType.ElementalDamage, amount);
+    public void DecreaseElementalDamage(float amount) => DecreaseStat(PlayerStatType.ElementalDamage, amount);
+
+    public void IncreaseAttackSpeed(float amount) => IncreaseStat(PlayerStatType.AttackSpeed, amount);
+    public void DecreaseAttackSpeed(float amount) => DecreaseStat(PlayerStatType.AttackSpeed, amount);
+
+    public void IncreaseCritChance(float amount) => IncreaseStat(PlayerStatType.CritChance, amount);
+    public void DecreaseCritChance(float amount) => DecreaseStat(PlayerStatType.CritChance, amount);
+
+    public void IncreaseCritDamage(float amount) => IncreaseStat(PlayerStatType.CritDamage, amount);
+    public void DecreaseCritDamage(float amount) => DecreaseStat(PlayerStatType.CritDamage, amount);
+
+    public void IncreaseLuck(float amount) => IncreaseStat(PlayerStatType.Luck, amount);
+    public void DecreaseLuck(float amount) => DecreaseStat(PlayerStatType.Luck, amount);
+
+    public void IncreaseHarvesting(float amount) => IncreaseStat(PlayerStatType.Harvesting, amount);
+    public void DecreaseHarvesting(float amount) => DecreaseStat(PlayerStatType.Harvesting, amount);
+
+    public void IncreaseRange(float amount) => IncreaseStat(PlayerStatType.Range, amount);
+    public void DecreaseRange(float amount) => DecreaseStat(PlayerStatType.Range, amount);
+
+    public void IncreaseProjectileSpeed(float amount) => IncreaseStat(PlayerStatType.ProjectileSpeed, amount);
+    public void DecreaseProjectileSpeed(float amount) => DecreaseStat(PlayerStatType.ProjectileSpeed, amount);
+
+    public void IncreaseLifeSteal(float amount) => IncreaseStat(PlayerStatType.LifeSteal, amount);
+    public void DecreaseLifeSteal(float amount) => DecreaseStat(PlayerStatType.LifeSteal, amount);
+
+    public void IncreaseKnockback(float amount) => IncreaseStat(PlayerStatType.Knockback, amount);
+    public void DecreaseKnockback(float amount) => DecreaseStat(PlayerStatType.Knockback, amount);
+
+    public void IncreaseEngineering(float amount) => IncreaseStat(PlayerStatType.Engineering, amount);
+    public void DecreaseEngineering(float amount) => DecreaseStat(PlayerStatType.Engineering, amount);
+
+    public void IncreaseExplosionDamage(float amount) => IncreaseStat(PlayerStatType.ExplosionDamage, amount);
+    public void DecreaseExplosionDamage(float amount) => DecreaseStat(PlayerStatType.ExplosionDamage, amount);
+
+    public void IncreaseExplosionSize(float amount) => IncreaseStat(PlayerStatType.ExplosionSize, amount);
+    public void DecreaseExplosionSize(float amount) => DecreaseStat(PlayerStatType.ExplosionSize, amount);
+
+    public void IncreaseHPRegen(float amount) => IncreaseStat(PlayerStatType.HPRegen, amount);
+    public void DecreaseHPRegen(float amount) => DecreaseStat(PlayerStatType.HPRegen, amount);
+
+    public void IncreaseMagnet(float amount) => IncreaseStat(PlayerStatType.Magnet, amount);
+    public void DecreaseMagnet(float amount) => DecreaseStat(PlayerStatType.Magnet, amount);
+
+    public void IncreasePickupRadius(float amount) => IncreaseStat(PlayerStatType.PickupRadius, amount);
+    public void DecreasePickupRadius(float amount) => DecreaseStat(PlayerStatType.PickupRadius, amount);
+
+    public void IncreaseGoldMultiplier(float amount) => IncreaseStat(PlayerStatType.GoldMultiplier, amount);
+    public void DecreaseGoldMultiplier(float amount) => DecreaseStat(PlayerStatType.GoldMultiplier, amount);
+
+    public void IncreaseExpMultiplier(float amount) => IncreaseStat(PlayerStatType.ExpMultiplier, amount);
+    public void DecreaseExpMultiplier(float amount) => DecreaseStat(PlayerStatType.ExpMultiplier, amount);
 }
