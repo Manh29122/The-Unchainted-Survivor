@@ -194,4 +194,15 @@ public class EnemyHealthBridge : MonoBehaviour
             gameObject.SetActive(false); // hoặc gọi ECS DestroyEntity
         }
     }
+
+    public void TakeDamageWithKnockback(int dmg, Vector2 direction, float force, float duration)
+    {
+        if (enemyUnit != null)
+        {
+            enemyUnit.TakeDamageWithKnockback(dmg, direction, force, duration);
+            return;
+        }
+
+        TakeDamage(dmg);
+    }
 }

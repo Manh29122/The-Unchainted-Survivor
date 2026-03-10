@@ -108,6 +108,7 @@ public class PlayerStats : MonoBehaviour
     public event Action<int, int> OnHPChanged;      // (current, max)
     public event Action OnStatsChanged;
     public event Action<int> OnDamageDodged;
+    public event Action<int> OnDamageTaken;
 
     private void Awake()
     {
@@ -310,6 +311,7 @@ public class PlayerStats : MonoBehaviour
         int mitigatedDamage = GetDamageAfterArmor(validDamage);
         currentHP = Mathf.Max(0, currentHP - mitigatedDamage);
         nextDamageAllowedTime = Time.time + Mathf.Max(0f, damageInvulnerabilityDuration);
+        OnDamageTaken?.Invoke(mitigatedDamage);
         OnHPChanged?.Invoke(currentHP, maxHP);
         NotifyStatsChanged();
 
@@ -325,8 +327,7 @@ public class PlayerStats : MonoBehaviour
             return 0;
         }
 
-        float damageMultiplier = 100f / (100f + armor);
-        int mitigatedDamage = Mathf.RoundToInt(validDamage * damageMultiplier);
+        int mitigatedDamage = Mathf.RoundToInt(validDamage - armor);
         return Mathf.Max(1, mitigatedDamage);
     }
 
@@ -530,98 +531,101 @@ public class PlayerStats : MonoBehaviour
         }
     }
 
-    public void ModifyStat(PlayerStatType statType, float amount)
+    public float ModifyStat(PlayerStatType statType, float amount, StatModifierValueType valueType = StatModifierValueType.Flat)
     {
+        float resolvedAmount = ResolveStatChangeAmount(statType, amount, valueType);
+
         switch (statType)
         {
             case PlayerStatType.MaxHP:
-                SetMaxHP(maxHP + Mathf.RoundToInt(amount), false);
-                return;
+                SetMaxHP(maxHP + Mathf.RoundToInt(resolvedAmount), false);
+                return resolvedAmount;
             case PlayerStatType.HPRegen:
-                hpRegen += amount;
+                hpRegen += resolvedAmount;
                 break;
             case PlayerStatType.Armor:
-                armor += amount;
+                armor += resolvedAmount;
                 break;
             case PlayerStatType.Dodge:
-                dodge = Mathf.Clamp(dodge + amount, 0f, maxDodgeChance);
+                dodge = Mathf.Clamp(dodge + resolvedAmount, 0f, maxDodgeChance);
                 break;
             case PlayerStatType.MoveSpeed:
-                moveSpeedBonus += amount;
+                moveSpeedBonus += resolvedAmount;
                 break;
             case PlayerStatType.DamagePercent:
-                damagePercent += amount;
+                damagePercent += resolvedAmount;
                 break;
             case PlayerStatType.MeleeDamage:
-                meleeDamage += amount;
+                meleeDamage += resolvedAmount;
                 break;
             case PlayerStatType.RangedDamage:
-                rangedDamage += amount;
+                rangedDamage += resolvedAmount;
                 break;
             case PlayerStatType.ElementalDamage:
-                elementalDamage += amount;
+                elementalDamage += resolvedAmount;
                 break;
             case PlayerStatType.AttackSpeed:
-                attackSpeed = Mathf.Max(0.1f, attackSpeed + amount);
+                attackSpeed = Mathf.Max(0.1f, attackSpeed + resolvedAmount);
                 break;
             case PlayerStatType.CritChance:
-                critChance = Mathf.Clamp(critChance + amount, 0f, 100f);
+                critChance = Mathf.Clamp(critChance + resolvedAmount, 0f, 100f);
                 break;
             case PlayerStatType.CritDamage:
-                critDamage = Mathf.Max(1f, critDamage + amount);
+                critDamage = Mathf.Max(1f, critDamage + resolvedAmount);
                 break;
             case PlayerStatType.Engineering:
-                engineering += amount;
+                engineering += resolvedAmount;
                 break;
             case PlayerStatType.ExplosionDamage:
-                explosionDamage += amount;
+                explosionDamage += resolvedAmount;
                 break;
             case PlayerStatType.ExplosionSize:
-                explosionSize = Mathf.Max(0.1f, explosionSize + amount);
+                explosionSize = Mathf.Max(0.1f, explosionSize + resolvedAmount);
                 break;
             case PlayerStatType.LifeSteal:
-                lifeSteal = Mathf.Max(0f, lifeSteal + amount);
+                lifeSteal = Mathf.Max(0f, lifeSteal + resolvedAmount);
                 break;
             case PlayerStatType.Knockback:
-                knockback += amount;
+                knockback += resolvedAmount;
                 break;
             case PlayerStatType.Range:
-                attackRange += amount;
+                attackRange += resolvedAmount;
                 break;
             case PlayerStatType.ProjectileSpeed:
-                projectileSpeed = Mathf.Max(0.1f, projectileSpeed + amount);
+                projectileSpeed = Mathf.Max(0.1f, projectileSpeed + resolvedAmount);
                 break;
             case PlayerStatType.Luck:
-                luck += amount;
+                luck += resolvedAmount;
                 break;
             case PlayerStatType.Harvesting:
-                harvesting += amount;
+                harvesting += resolvedAmount;
                 break;
             case PlayerStatType.Magnet:
-                magnetMultiplier = Mathf.Max(0f, magnetMultiplier + amount);
+                magnetMultiplier = Mathf.Max(0f, magnetMultiplier + resolvedAmount);
                 break;
             case PlayerStatType.PickupRadius:
-                basePickupRadius = Mathf.Max(0f, basePickupRadius + amount);
+                basePickupRadius = Mathf.Max(0f, basePickupRadius + resolvedAmount);
                 break;
             case PlayerStatType.GoldMultiplier:
-                goldMultiplier = Mathf.Max(0f, goldMultiplier + amount);
+                goldMultiplier = Mathf.Max(0f, goldMultiplier + resolvedAmount);
                 break;
             case PlayerStatType.ExpMultiplier:
-                expMultiplier = Mathf.Max(0f, expMultiplier + amount);
+                expMultiplier = Mathf.Max(0f, expMultiplier + resolvedAmount);
                 break;
         }
 
         NotifyStatsChanged();
+        return resolvedAmount;
     }
 
-    public void IncreaseStat(PlayerStatType statType, float amount)
+    public float IncreaseStat(PlayerStatType statType, float amount, StatModifierValueType valueType = StatModifierValueType.Flat)
     {
-        ModifyStat(statType, Mathf.Abs(amount));
+        return ModifyStat(statType, Mathf.Abs(amount), valueType);
     }
 
-    public void DecreaseStat(PlayerStatType statType, float amount)
+    public float DecreaseStat(PlayerStatType statType, float amount, StatModifierValueType valueType = StatModifierValueType.Flat)
     {
-        ModifyStat(statType, -Mathf.Abs(amount));
+        return ModifyStat(statType, -Mathf.Abs(amount), valueType);
     }
 
     public void SetStatValue(PlayerStatType statType, float value)
@@ -630,75 +634,92 @@ public class PlayerStats : MonoBehaviour
         ModifyStat(statType, value - currentValue);
     }
 
-    public void IncreaseArmor(float amount) => IncreaseStat(PlayerStatType.Armor, amount);
-    public void DecreaseArmor(float amount) => DecreaseStat(PlayerStatType.Armor, amount);
+    private float ResolveStatChangeAmount(PlayerStatType statType, float amount, StatModifierValueType valueType)
+    {
+        if (valueType != StatModifierValueType.Percent)
+        {
+            return amount;
+        }
 
-    public void IncreaseDodge(float amount) => IncreaseStat(PlayerStatType.Dodge, amount);
-    public void DecreaseDodge(float amount) => DecreaseStat(PlayerStatType.Dodge, amount);
+        float baseValue = GetStatValue(statType);
+        float percentAmount = baseValue * (amount / 100f);
+        return RoundPercentDelta(percentAmount);
+    }
 
-    public void IncreaseMoveSpeed(float amount) => IncreaseStat(PlayerStatType.MoveSpeed, amount);
-    public void DecreaseMoveSpeed(float amount) => DecreaseStat(PlayerStatType.MoveSpeed, amount);
+    private static float RoundPercentDelta(float value)
+    {
+        return Mathf.Approximately(value, Mathf.Round(value)) ? value : Mathf.Round(value);
+    }
 
-    public void IncreaseDamagePercent(float amount) => IncreaseStat(PlayerStatType.DamagePercent, amount);
-    public void DecreaseDamagePercent(float amount) => DecreaseStat(PlayerStatType.DamagePercent, amount);
+    public float IncreaseArmor(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Armor, amount, valueType);
+    public float DecreaseArmor(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Armor, amount, valueType);
 
-    public void IncreaseMeleeDamage(float amount) => IncreaseStat(PlayerStatType.MeleeDamage, amount);
-    public void DecreaseMeleeDamage(float amount) => DecreaseStat(PlayerStatType.MeleeDamage, amount);
+    public float IncreaseDodge(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Dodge, amount, valueType);
+    public float DecreaseDodge(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Dodge, amount, valueType);
 
-    public void IncreaseRangedDamage(float amount) => IncreaseStat(PlayerStatType.RangedDamage, amount);
-    public void DecreaseRangedDamage(float amount) => DecreaseStat(PlayerStatType.RangedDamage, amount);
+    public float IncreaseMoveSpeed(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.MoveSpeed, amount, valueType);
+    public float DecreaseMoveSpeed(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.MoveSpeed, amount, valueType);
 
-    public void IncreaseElementalDamage(float amount) => IncreaseStat(PlayerStatType.ElementalDamage, amount);
-    public void DecreaseElementalDamage(float amount) => DecreaseStat(PlayerStatType.ElementalDamage, amount);
+    public float IncreaseDamagePercent(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.DamagePercent, amount, valueType);
+    public float DecreaseDamagePercent(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.DamagePercent, amount, valueType);
 
-    public void IncreaseAttackSpeed(float amount) => IncreaseStat(PlayerStatType.AttackSpeed, amount);
-    public void DecreaseAttackSpeed(float amount) => DecreaseStat(PlayerStatType.AttackSpeed, amount);
+    public float IncreaseMeleeDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.MeleeDamage, amount, valueType);
+    public float DecreaseMeleeDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.MeleeDamage, amount, valueType);
 
-    public void IncreaseCritChance(float amount) => IncreaseStat(PlayerStatType.CritChance, amount);
-    public void DecreaseCritChance(float amount) => DecreaseStat(PlayerStatType.CritChance, amount);
+    public float IncreaseRangedDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.RangedDamage, amount, valueType);
+    public float DecreaseRangedDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.RangedDamage, amount, valueType);
 
-    public void IncreaseCritDamage(float amount) => IncreaseStat(PlayerStatType.CritDamage, amount);
-    public void DecreaseCritDamage(float amount) => DecreaseStat(PlayerStatType.CritDamage, amount);
+    public float IncreaseElementalDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.ElementalDamage, amount, valueType);
+    public float DecreaseElementalDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.ElementalDamage, amount, valueType);
 
-    public void IncreaseLuck(float amount) => IncreaseStat(PlayerStatType.Luck, amount);
-    public void DecreaseLuck(float amount) => DecreaseStat(PlayerStatType.Luck, amount);
+    public float IncreaseAttackSpeed(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.AttackSpeed, amount, valueType);
+    public float DecreaseAttackSpeed(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.AttackSpeed, amount, valueType);
 
-    public void IncreaseHarvesting(float amount) => IncreaseStat(PlayerStatType.Harvesting, amount);
-    public void DecreaseHarvesting(float amount) => DecreaseStat(PlayerStatType.Harvesting, amount);
+    public float IncreaseCritChance(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.CritChance, amount, valueType);
+    public float DecreaseCritChance(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.CritChance, amount, valueType);
 
-    public void IncreaseRange(float amount) => IncreaseStat(PlayerStatType.Range, amount);
-    public void DecreaseRange(float amount) => DecreaseStat(PlayerStatType.Range, amount);
+    public float IncreaseCritDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.CritDamage, amount, valueType);
+    public float DecreaseCritDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.CritDamage, amount, valueType);
 
-    public void IncreaseProjectileSpeed(float amount) => IncreaseStat(PlayerStatType.ProjectileSpeed, amount);
-    public void DecreaseProjectileSpeed(float amount) => DecreaseStat(PlayerStatType.ProjectileSpeed, amount);
+    public float IncreaseLuck(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Luck, amount, valueType);
+    public float DecreaseLuck(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Luck, amount, valueType);
 
-    public void IncreaseLifeSteal(float amount) => IncreaseStat(PlayerStatType.LifeSteal, amount);
-    public void DecreaseLifeSteal(float amount) => DecreaseStat(PlayerStatType.LifeSteal, amount);
+    public float IncreaseHarvesting(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Harvesting, amount, valueType);
+    public float DecreaseHarvesting(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Harvesting, amount, valueType);
 
-    public void IncreaseKnockback(float amount) => IncreaseStat(PlayerStatType.Knockback, amount);
-    public void DecreaseKnockback(float amount) => DecreaseStat(PlayerStatType.Knockback, amount);
+    public float IncreaseRange(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Range, amount, valueType);
+    public float DecreaseRange(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Range, amount, valueType);
 
-    public void IncreaseEngineering(float amount) => IncreaseStat(PlayerStatType.Engineering, amount);
-    public void DecreaseEngineering(float amount) => DecreaseStat(PlayerStatType.Engineering, amount);
+    public float IncreaseProjectileSpeed(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.ProjectileSpeed, amount, valueType);
+    public float DecreaseProjectileSpeed(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.ProjectileSpeed, amount, valueType);
 
-    public void IncreaseExplosionDamage(float amount) => IncreaseStat(PlayerStatType.ExplosionDamage, amount);
-    public void DecreaseExplosionDamage(float amount) => DecreaseStat(PlayerStatType.ExplosionDamage, amount);
+    public float IncreaseLifeSteal(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.LifeSteal, amount, valueType);
+    public float DecreaseLifeSteal(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.LifeSteal, amount, valueType);
 
-    public void IncreaseExplosionSize(float amount) => IncreaseStat(PlayerStatType.ExplosionSize, amount);
-    public void DecreaseExplosionSize(float amount) => DecreaseStat(PlayerStatType.ExplosionSize, amount);
+    public float IncreaseKnockback(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Knockback, amount, valueType);
+    public float DecreaseKnockback(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Knockback, amount, valueType);
 
-    public void IncreaseHPRegen(float amount) => IncreaseStat(PlayerStatType.HPRegen, amount);
-    public void DecreaseHPRegen(float amount) => DecreaseStat(PlayerStatType.HPRegen, amount);
+    public float IncreaseEngineering(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Engineering, amount, valueType);
+    public float DecreaseEngineering(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Engineering, amount, valueType);
 
-    public void IncreaseMagnet(float amount) => IncreaseStat(PlayerStatType.Magnet, amount);
-    public void DecreaseMagnet(float amount) => DecreaseStat(PlayerStatType.Magnet, amount);
+    public float IncreaseExplosionDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.ExplosionDamage, amount, valueType);
+    public float DecreaseExplosionDamage(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.ExplosionDamage, amount, valueType);
 
-    public void IncreasePickupRadius(float amount) => IncreaseStat(PlayerStatType.PickupRadius, amount);
-    public void DecreasePickupRadius(float amount) => DecreaseStat(PlayerStatType.PickupRadius, amount);
+    public float IncreaseExplosionSize(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.ExplosionSize, amount, valueType);
+    public float DecreaseExplosionSize(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.ExplosionSize, amount, valueType);
 
-    public void IncreaseGoldMultiplier(float amount) => IncreaseStat(PlayerStatType.GoldMultiplier, amount);
-    public void DecreaseGoldMultiplier(float amount) => DecreaseStat(PlayerStatType.GoldMultiplier, amount);
+    public float IncreaseHPRegen(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.HPRegen, amount, valueType);
+    public float DecreaseHPRegen(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.HPRegen, amount, valueType);
 
-    public void IncreaseExpMultiplier(float amount) => IncreaseStat(PlayerStatType.ExpMultiplier, amount);
-    public void DecreaseExpMultiplier(float amount) => DecreaseStat(PlayerStatType.ExpMultiplier, amount);
+    public float IncreaseMagnet(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.Magnet, amount, valueType);
+    public float DecreaseMagnet(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.Magnet, amount, valueType);
+
+    public float IncreasePickupRadius(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.PickupRadius, amount, valueType);
+    public float DecreasePickupRadius(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.PickupRadius, amount, valueType);
+
+    public float IncreaseGoldMultiplier(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.GoldMultiplier, amount, valueType);
+    public float DecreaseGoldMultiplier(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.GoldMultiplier, amount, valueType);
+
+    public float IncreaseExpMultiplier(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => IncreaseStat(PlayerStatType.ExpMultiplier, amount, valueType);
+    public float DecreaseExpMultiplier(float amount, StatModifierValueType valueType = StatModifierValueType.Flat) => DecreaseStat(PlayerStatType.ExpMultiplier, amount, valueType);
 }

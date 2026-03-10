@@ -4,6 +4,19 @@ using UnityEngine;
 
 public class PlayerItemInventory : MonoBehaviour
 {
+    [Serializable]
+    public class AppliedModifierEntry
+    {
+        public PlayerStatType statType;
+        public float appliedValue;
+    }
+
+    [Serializable]
+    public class AppliedModifierStack
+    {
+        public List<AppliedModifierEntry> modifiers = new List<AppliedModifierEntry>();
+    }
+
     private class ActiveEffectEntry
     {
         public UnchaintedItemData itemData;
@@ -17,6 +30,36 @@ public class PlayerItemInventory : MonoBehaviour
     {
         public UnchaintedItemData itemData;
         public int stackCount;
+        [SerializeField] private List<AppliedModifierStack> appliedStacks = new List<AppliedModifierStack>();
+
+        public void AddAppliedStack(AppliedModifierStack appliedStack)
+        {
+            if (appliedStack == null)
+            {
+                return;
+            }
+
+            if (appliedStacks == null)
+            {
+                appliedStacks = new List<AppliedModifierStack>();
+            }
+
+            appliedStacks.Add(appliedStack);
+        }
+
+        public bool TryPopAppliedStack(out AppliedModifierStack appliedStack)
+        {
+            appliedStack = null;
+            if (appliedStacks == null || appliedStacks.Count <= 0)
+            {
+                return false;
+            }
+
+            int lastIndex = appliedStacks.Count - 1;
+            appliedStack = appliedStacks[lastIndex];
+            appliedStacks.RemoveAt(lastIndex);
+            return true;
+        }
     }
 
     [Header("Inventory")]
@@ -71,7 +114,7 @@ public class PlayerItemInventory : MonoBehaviour
         for (int i = 0; i < addableAmount; i++)
         {
             entry.stackCount++;
-            ApplyItem(itemData, entry.stackCount);
+            ApplyItem(entry, itemData, entry.stackCount);
             OnItemAdded?.Invoke(itemData, entry.stackCount);
         }
 
@@ -95,7 +138,7 @@ public class PlayerItemInventory : MonoBehaviour
         int removableAmount = Mathf.Min(amount, entry.stackCount);
         for (int i = 0; i < removableAmount; i++)
         {
-            RemoveItemEffects(itemData, entry.stackCount);
+            RemoveItemEffects(entry, itemData, entry.stackCount);
             entry.stackCount--;
             OnItemRemoved?.Invoke(itemData, entry.stackCount);
         }
@@ -132,7 +175,7 @@ public class PlayerItemInventory : MonoBehaviour
             OwnedItemEntry entry = ownedItems[entryIndex];
             while (entry.stackCount > 0)
             {
-                RemoveItemEffects(entry.itemData, entry.stackCount);
+                RemoveItemEffects(entry, entry.itemData, entry.stackCount);
                 entry.stackCount--;
             }
         }
@@ -146,26 +189,64 @@ public class PlayerItemInventory : MonoBehaviour
         return ownedItems.Find(entry => entry.itemData == itemData);
     }
 
-    private void ApplyItem(UnchaintedItemData itemData, int stackCount)
+    private void ApplyItem(OwnedItemEntry entry, UnchaintedItemData itemData, int stackCount)
     {
         if (playerStats != null && itemData.statModifiers != null)
         {
+            AppliedModifierStack appliedStack = new AppliedModifierStack();
+
             foreach (ItemStatModifier modifier in itemData.statModifiers)
             {
-                playerStats.ModifyStat(modifier.statType, modifier.value);
+                if (modifier == null)
+                {
+                    continue;
+                }
+
+                float appliedValue = playerStats.ModifyStat(modifier.statType, modifier.value, modifier.valueType);
+                appliedStack.modifiers.Add(new AppliedModifierEntry
+                {
+                    statType = modifier.statType,
+                    appliedValue = appliedValue
+                });
+            }
+
+            if (entry != null)
+            {
+                entry.AddAppliedStack(appliedStack);
             }
         }
 
         SyncItemEffects(itemData, stackCount);
     }
 
-    private void RemoveItemEffects(UnchaintedItemData itemData, int stackCount)
+    private void RemoveItemEffects(OwnedItemEntry entry, UnchaintedItemData itemData, int stackCount)
     {
-        if (playerStats != null && itemData.statModifiers != null)
+        if (playerStats != null)
         {
-            foreach (ItemStatModifier modifier in itemData.statModifiers)
+            AppliedModifierStack appliedStack = null;
+            if (entry != null && entry.TryPopAppliedStack(out AppliedModifierStack poppedStack))
             {
-                playerStats.ModifyStat(modifier.statType, -modifier.value);
+                appliedStack = poppedStack;
+            }
+
+            if (appliedStack != null)
+            {
+                foreach (AppliedModifierEntry appliedModifier in appliedStack.modifiers)
+                {
+                    playerStats.ModifyStat(appliedModifier.statType, -appliedModifier.appliedValue);
+                }
+            }
+            else if (itemData.statModifiers != null)
+            {
+                foreach (ItemStatModifier modifier in itemData.statModifiers)
+                {
+                    if (modifier == null)
+                    {
+                        continue;
+                    }
+
+                    playerStats.ModifyStat(modifier.statType, -modifier.value);
+                }
             }
         }
 

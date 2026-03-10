@@ -95,6 +95,36 @@ public class EnemyHealth : MonoBehaviour
         }
     }
 
+    public void TakeDamageWithKnockback(float damage, Vector2 direction, float force, float duration)
+    {
+        if (enemyUnit != null)
+        {
+            if (!enemyUnit.IsAlive) return;
+
+            enemyUnit.TakeDamageWithKnockback(damage, direction, force, duration);
+            currentHealth = enemyUnit.CurrentHealth;
+
+            if (floatingTextPrefab != null)
+            {
+                GameObject popup = Instantiate(floatingTextPrefab, transform.position, Quaternion.identity);
+                FloatingText ft = popup.GetComponent<FloatingText>();
+                if (ft != null)
+                    ft.SetText(damage.ToString("F0"), Color.red);
+            }
+
+            onTakeDamage?.Invoke(damage);
+
+            if (!enemyUnit.IsAlive)
+            {
+                onDeath?.Invoke();
+            }
+
+            return;
+        }
+
+        TakeDamage(damage);
+    }
+
     /// <summary>
     /// Heals the enemy
     /// </summary>

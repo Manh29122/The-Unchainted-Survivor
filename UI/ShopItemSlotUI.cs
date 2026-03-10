@@ -132,11 +132,13 @@ public class ShopItemSlotUI : MonoBehaviour
                 string color = modifier.value >= 0f ? "#4CFF6B" : "#FF5C5C";
                 string sign = modifier.value >= 0f ? "+" : string.Empty;
                 string statName = GetDisplayName(modifier.statType);
-                string valueText = Mathf.Approximately(modifier.value % 1f, 0f)
-                    ? Mathf.RoundToInt(modifier.value).ToString()
-                    : modifier.value.ToString("0.##");
+                float absoluteValue = Mathf.Abs(modifier.value);
+                string valueText = Mathf.Approximately(absoluteValue % 1f, 0f)
+                    ? Mathf.RoundToInt(absoluteValue).ToString()
+                    : absoluteValue.ToString("0.##");
+                string suffix = modifier.valueType == StatModifierValueType.Percent ? "%" : string.Empty;
 
-                builder.AppendLine($"<color={color}>{sign}{valueText} {statName}</color>");
+                builder.AppendLine($"<color={color}>{sign}{valueText}{suffix} {statName}</color>");
             }
         }
 

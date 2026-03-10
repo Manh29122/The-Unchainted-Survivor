@@ -21,16 +21,20 @@ MonoBehaviour:
   maxStacks: 300
   statModifiers:
   - statType: 11
-    value: 3
+    value: 5
+    valueType: 1
     note: 
   - statType: 21
     value: 1
+    valueType: 0
     note: 
   - statType: 4
-    value: -1
+    value: -3
+    valueType: 1
     note: 
   - statType: 15
     value: 1
+    valueType: 0
     note: 
   specialEffects:
   - {fileID: 0}

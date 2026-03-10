@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Reflection;
 using TMPro;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -261,7 +263,7 @@ public class CharacterManager : MonoBehaviour
             return null;
         }
 
-        int randomIndex = Random.Range(0, CharacterList.Count);
+        int randomIndex = UnityEngine.Random.Range(0, CharacterList.Count);
         return CharacterList[randomIndex];
     }
 
@@ -344,6 +346,9 @@ public class CharacterManager : MonoBehaviour
         {
             stats.maxHP = (int)data.Health;
             stats.currentHP = (int)data.Health;
+            stats.damagePercent = data.Attack;
+            stats.armor = data.Armor;
+            stats.hpRegen = data.Recovery;
             stats.magnetMultiplier = data.Magnet;
         }
 
@@ -351,6 +356,8 @@ public class CharacterManager : MonoBehaviour
         var movement = player.GetComponent<PlayerMovement>();
         if (movement != null)
             movement.moveSpeed = data.Speed;
+
+        EnsurePlayerDamageBlink(player);
 
         // ── SkillSpawner ──────────────────────
         // Spawn skill riêng của nhân vật nếu có
@@ -429,5 +436,64 @@ public class CharacterManager : MonoBehaviour
         armorValueTxt.text = data.Armor.ToString("F0");
         speedValueTxt.text = data.Speed.ToString("F0");
         recovery.text = data.Recovery.ToString();
+    }
+
+    private void EnsurePlayerDamageBlink(GameObject player)
+    {
+        Type damageBlinkType = FindTypeByName("PlayerDamageBlink");
+        if (damageBlinkType == null)
+        {
+            Debug.LogWarning("[CharacterManager] Không tìm thấy type PlayerDamageBlink để gắn hiệu ứng blink.");
+            return;
+        }
+
+        if (player.GetComponent(damageBlinkType) == null)
+        {
+            player.AddComponent(damageBlinkType);
+        }
+
+        player.SendMessage("RefreshRenderers", SendMessageOptions.DontRequireReceiver);
+    }
+
+    private static Type FindTypeByName(string typeName)
+    {
+        Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        for (int i = 0; i < assemblies.Length; i++)
+        {
+            Type foundType = assemblies[i].GetType(typeName);
+            if (foundType != null)
+            {
+                return foundType;
+            }
+        }
+
+        for (int i = 0; i < assemblies.Length; i++)
+        {
+            Type[] types;
+            try
+            {
+                types = assemblies[i].GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types = ex.Types;
+            }
+
+            if (types == null)
+            {
+                continue;
+            }
+
+            for (int j = 0; j < types.Length; j++)
+            {
+                Type currentType = types[j];
+                if (currentType != null && currentType.Name == typeName)
+                {
+                    return currentType;
+                }
+            }
+        }
+
+        return null;
     }
 }

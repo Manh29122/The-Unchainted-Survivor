@@ -139,6 +139,11 @@ public class EnemyUnit : MonoBehaviour
         TakeDamage(Mathf.RoundToInt(damage));
     }
 
+    public void TakeDamageWithKnockback(float damage, Vector2 direction, float force, float duration)
+    {
+        TakeDamageWithKnockback(Mathf.RoundToInt(damage), direction, force, duration);
+    }
+
     public void TakeDamage(int damage)
     {
         int validDamage = Mathf.Max(0, damage);
@@ -153,6 +158,21 @@ public class EnemyUnit : MonoBehaviour
         if (currentHealth <= 0)
         {
             Die();
+        }
+    }
+
+    public void TakeDamageWithKnockback(int damage, Vector2 direction, float force, float duration)
+    {
+        if (!IsAlive)
+        {
+            return;
+        }
+
+        TakeDamage(damage);
+
+        if (IsAlive)
+        {
+            ApplyKnockback(direction, force, duration);
         }
     }
 
@@ -276,7 +296,6 @@ public class EnemyUnit : MonoBehaviour
 
     private void SpawnDeathDrops()
     {
-        Debug.Log($"[EnemyUnit] Attempting to spawn death drops for {gameObject.name}.");
         if (hasSpawnedDeathDrops)
         {
             return;

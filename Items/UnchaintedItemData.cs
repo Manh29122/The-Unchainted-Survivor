@@ -25,6 +25,7 @@ public class UnchaintedItemData : ScriptableObject
     public int maxStacks = 1;
 
     [Header("Stats")]
+    [Tooltip("Mỗi modifier có thể cộng theo số trực tiếp hoặc theo phần trăm của stat hiện tại.")]
     public List<ItemStatModifier> statModifiers = new List<ItemStatModifier>();
 
     [Header("Special Effects")]
