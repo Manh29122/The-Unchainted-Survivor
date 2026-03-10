@@ -144,7 +144,7 @@ public class CharacterManager : MonoBehaviour
                 var tempObj = Instantiate(_childContent.gameObject, _content.transform);
                 tempObj.GetComponent<BookCharacterSelector>().characterData = cl;
                 var headset = cl.characterIcon;
-                var headsetIns = Instantiate(headset, tempObj.transform);
+                var headsetIns = Instantiate(headset, tempObj.transform);          
                 headsetIns.gameObject.GetComponent<RectTransform>().SetParent(tempObj.gameObject.GetComponent<RectTransform>());
                 headsetIns.gameObject.GetComponent<RectTransform>().anchoredPosition = tempObj.gameObject.GetComponent<RectTransform>().anchoredPosition;
                 headsetIns.gameObject.GetComponent<RectTransform>().localScale = new Vector3(80, 80, 80);
@@ -221,7 +221,7 @@ public class CharacterManager : MonoBehaviour
         CurrentPlayerObject.transform.localScale = spawnForGameplayScene ? sceneSpawnScale : selectionScale;
 
         CurrentPlayerObject.name = $"Player_{data.characterName}";
-
+        CurrentPlayerObject.SetActive(true);
         // Áp dụng stats vào các component của player
         ApplyStatsToPlayer(CurrentPlayerObject, data);
         Display(data);

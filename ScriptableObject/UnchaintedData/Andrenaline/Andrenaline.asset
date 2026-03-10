@@ -10,27 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 019cc57c4d11253419f95454c856b4ea, type: 3}
-  m_Name: JuideLeak
+  m_Name: Andrenaline
   m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
-  itemId: 2
-  itemName: Litter Power
-  description: 
-  icon: {fileID: 2185167392590505104, guid: 502acb2015202b446a33819f00f7066e, type: 3}
-  tier: 0
-  price: 5
-  maxStacks: 300
+  itemId: 3
+  itemName: Andrenaline
+  description: 50% chance to heal 5 HP when dodging an attack
+  icon: {fileID: -8573801853638594318, guid: 502acb2015202b446a33819f00f7066e, type: 3}
+  tier: 2
+  price: 250
+  maxStacks: 1
   statModifiers:
-  - statType: 11
-    value: 3
-    note: 
-  - statType: 21
-    value: 1
-    note: 
-  - statType: 4
-    value: -1
-    note: 
-  - statType: 15
-    value: 1
+  - statType: 3
+    value: 5
     note: 
   specialEffects:
-  - {fileID: 0}
+  - {fileID: 11400000, guid: 302c08d9a663eff4a997bdc2bc3c7105, type: 2}

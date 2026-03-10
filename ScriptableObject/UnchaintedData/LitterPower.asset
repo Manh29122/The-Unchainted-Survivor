@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
   itemId: 1
   itemName: Litter Power
-  description: Grant a blessing with a bit of power.
+  description: 
   icon: {fileID: 2185167392590505104, guid: 502acb2015202b446a33819f00f7066e, type: 3}
   tier: 1
   price: 5

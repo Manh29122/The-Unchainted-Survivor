@@ -47,7 +47,7 @@ public class ProjectileSkill : PooledObject
         if (!other.CompareTag(enemyTag)) return;
 
         // Gây damage
-        var enemyHealth = other.GetComponent<EnemyHealthBridge>();
+        var enemyHealth = other.GetComponentInParent<EnemyHealthBridge>();
         enemyHealth?.TakeDamage(damage);
 
         ReturnToPool();
@@ -96,7 +96,7 @@ public class AoESkill : PooledObject
         foreach (var hit in hits)
         {
             if (!hit.CompareTag(enemyTag)) continue;
-            hit.GetComponent<EnemyHealthBridge>()?.TakeDamage(damagePerTick);
+            hit.GetComponentInParent<EnemyHealthBridge>()?.TakeDamage(damagePerTick);
         }
     }
 
@@ -172,10 +172,26 @@ public class EnemyHealthBridge : MonoBehaviour
 {
     public int hp = 50;
 
+    private EnemyUnit enemyUnit;
+
+    private void Awake()
+    {
+        enemyUnit = GetComponentInParent<EnemyUnit>();
+    }
+
     public void TakeDamage(int dmg)
     {
+        if (enemyUnit != null)
+        {
+            enemyUnit.TakeDamage(dmg);
+            return;
+        }
+
         hp -= dmg;
         if (hp <= 0)
+        {
+            Debug.LogWarning($"[EnemyHealthBridge] {gameObject.name} has no EnemyUnit in parent hierarchy. Disabling hit object directly, so EnemyUnit death drops will not run.");
             gameObject.SetActive(false); // hoặc gọi ECS DestroyEntity
+        }
     }
 }

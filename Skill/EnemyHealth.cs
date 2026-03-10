@@ -7,6 +7,8 @@ using UnityEngine.Events;
 /// </summary>
 public class EnemyHealth : MonoBehaviour
 {
+    private EnemyUnit enemyUnit;
+
     [Header("Health Settings")]
     [Tooltip("Maximum health of the enemy")]
     [SerializeField] private float maxHealth = 100f;
@@ -34,7 +36,8 @@ public class EnemyHealth : MonoBehaviour
 
     private void Awake()
     {
-        currentHealth = maxHealth;
+        enemyUnit = GetComponentInParent<EnemyUnit>();
+        currentHealth = enemyUnit != null ? enemyUnit.CurrentHealth : maxHealth;
     }
 
     /// <summary>
@@ -43,6 +46,31 @@ public class EnemyHealth : MonoBehaviour
     /// <param name="damage">Amount of damage to deal</param>
     public void TakeDamage(float damage)
     {
+        if (enemyUnit != null)
+        {
+            if (!enemyUnit.IsAlive) return;
+
+            enemyUnit.TakeDamage(damage);
+            currentHealth = enemyUnit.CurrentHealth;
+
+            if (floatingTextPrefab != null)
+            {
+                GameObject popup = Instantiate(floatingTextPrefab, transform.position, Quaternion.identity);
+                FloatingText ft = popup.GetComponent<FloatingText>();
+                if (ft != null)
+                    ft.SetText(damage.ToString("F0"), Color.red);
+            }
+
+            onTakeDamage?.Invoke(damage);
+
+            if (!enemyUnit.IsAlive)
+            {
+                onDeath?.Invoke();
+            }
+
+            return;
+        }
+
         if (currentHealth <= 0) return; // Already dead
 
         currentHealth -= damage;
@@ -73,6 +101,13 @@ public class EnemyHealth : MonoBehaviour
     /// <param name="healAmount">Amount to heal</param>
     public void Heal(float healAmount)
     {
+        if (enemyUnit != null)
+        {
+            enemyUnit.Heal(Mathf.RoundToInt(healAmount));
+            currentHealth = enemyUnit.CurrentHealth;
+            return;
+        }
+
         currentHealth += healAmount;
         currentHealth = Mathf.Min(currentHealth, maxHealth); // Cap at max health
 
@@ -84,6 +119,13 @@ public class EnemyHealth : MonoBehaviour
     /// </summary>
     public void Kill()
     {
+        if (enemyUnit != null)
+        {
+            enemyUnit.Kill();
+            currentHealth = 0;
+            return;
+        }
+
         currentHealth = 0;
         Die();
     }
@@ -119,7 +161,7 @@ public class EnemyHealth : MonoBehaviour
     /// </summary>
     public float GetCurrentHealth()
     {
-        return currentHealth;
+        return enemyUnit != null ? enemyUnit.CurrentHealth : currentHealth;
     }
 
     /// <summary>
@@ -127,7 +169,7 @@ public class EnemyHealth : MonoBehaviour
     /// </summary>
     public float GetMaxHealth()
     {
-        return maxHealth;
+        return enemyUnit != null ? enemyUnit.MaxHealth : maxHealth;
     }
 
     /// <summary>
@@ -135,7 +177,9 @@ public class EnemyHealth : MonoBehaviour
     /// </summary>
     public float GetHealthPercentage()
     {
-        return currentHealth / maxHealth;
+        float current = GetCurrentHealth();
+        float maximum = GetMaxHealth();
+        return maximum > 0f ? current / maximum : 0f;
     }
 
     /// <summary>
@@ -143,6 +187,6 @@ public class EnemyHealth : MonoBehaviour
     /// </summary>
     public bool IsAlive()
     {
-        return currentHealth > 0;
+        return enemyUnit != null ? enemyUnit.IsAlive : currentHealth > 0;
     }
 }

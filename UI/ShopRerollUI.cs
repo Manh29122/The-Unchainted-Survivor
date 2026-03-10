@@ -12,6 +12,12 @@ public class ShopRerollUI : MonoBehaviour
     [SerializeField] private TMP_Text feedbackText;
     [SerializeField] private List<ShopItemSlotUI> itemSlots = new List<ShopItemSlotUI>();
 
+    [Header("Floating Warning")]
+    [SerializeField] private GameObject floatingTextPrefab;
+    [SerializeField] private RectTransform floatingTextParent;
+    [SerializeField] private Vector3 rerollWarningOffset = new Vector3(0f, 50f, 0f);
+    [SerializeField] private Color rerollWarningColor = Color.red;
+
     [Header("Display")]
     [SerializeField] private string rerollPrefix = "Reroll: ";
     [SerializeField] private string notEnoughGoldMessage = "Not enough gold";
@@ -27,12 +33,7 @@ public class ShopRerollUI : MonoBehaviour
 
         if (rerollButton != null)
         {
-            rerollButton.gameObject.SetActive(false);
-        }
-
-        if (rerollCostText != null)
-        {
-            rerollCostText.gameObject.SetActive(false);
+            rerollButton.onClick.AddListener(HandleRerollButton);
         }
     }
 
@@ -46,6 +47,7 @@ public class ShopRerollUI : MonoBehaviour
         shopSystem.OnOffersRolled += RefreshOffers;
         shopSystem.OnOffersChanged += RefreshOffers;
         shopSystem.OnRerollCostChanged += RefreshRerollCost;
+        shopSystem.OnFreeRerollsChanged += RefreshRerollCost;
         shopSystem.OnRerollFailed += HandleRerollFailed;
         shopSystem.OnPurchaseFailed += HandlePurchaseFailed;
         shopSystem.OnItemPurchased += HandleItemPurchased;
@@ -72,9 +74,24 @@ public class ShopRerollUI : MonoBehaviour
         shopSystem.OnOffersRolled -= RefreshOffers;
         shopSystem.OnOffersChanged -= RefreshOffers;
         shopSystem.OnRerollCostChanged -= RefreshRerollCost;
+        shopSystem.OnFreeRerollsChanged -= RefreshRerollCost;
         shopSystem.OnRerollFailed -= HandleRerollFailed;
         shopSystem.OnPurchaseFailed -= HandlePurchaseFailed;
         shopSystem.OnItemPurchased -= HandleItemPurchased;
+    }
+
+    private void HandleRerollButton()
+    {
+        if (shopSystem == null)
+        {
+            return;
+        }
+
+        bool success = shopSystem.TryReroll();
+        if (success)
+        {
+            SetFeedback(string.Empty);
+        }
     }
 
     private void RefreshOffers(List<UnchaintedItemData> offers)
@@ -101,13 +118,14 @@ public class ShopRerollUI : MonoBehaviour
     {
         if (rerollCostText != null)
         {
-            rerollCostText.text = $"{rerollPrefix}{cost}";
+            rerollCostText.text = cost.ToString();
         }
     }
 
     private void HandleRerollFailed(int cost)
     {
         SetFeedback($"{notEnoughGoldMessage} ({cost})");
+        ShowRerollWarningFloatingText(notEnoughGoldMessage);
     }
 
     private void HandlePurchaseFailed(UnchaintedItemData itemData)
@@ -125,6 +143,43 @@ public class ShopRerollUI : MonoBehaviour
         if (feedbackText != null)
         {
             feedbackText.text = message;
+        }
+    }
+
+    private void ShowRerollWarningFloatingText(string message)
+    {
+        if (floatingTextPrefab == null || rerollButton == null)
+        {
+            return;
+        }
+
+        Transform parentTransform = floatingTextParent != null ? floatingTextParent : rerollButton.transform.parent;
+        GameObject popup = Instantiate(floatingTextPrefab, parentTransform);
+
+        RectTransform popupRect = popup.transform as RectTransform;
+        RectTransform parentRect = parentTransform as RectTransform;
+
+        if (popupRect != null && parentRect != null)
+        {
+            popupRect.anchoredPosition = (Vector2)rerollWarningOffset;
+            popupRect.localScale = Vector3.one;
+            Vector3 localPosition = popupRect.localPosition;
+            localPosition.z = -10f;
+            popupRect.localPosition = localPosition;
+        }
+        else
+        {
+            popup.transform.localPosition = rerollWarningOffset;
+            popup.transform.localScale = Vector3.one;
+            Vector3 localPosition = popup.transform.localPosition;
+            localPosition.z = -10f;
+            popup.transform.localPosition = localPosition;
+        }
+
+        FloatingText floatingText = popup.GetComponent<FloatingText>();
+        if (floatingText != null)
+        {
+            floatingText.SetText(message, rerollWarningColor);
         }
     }
 }

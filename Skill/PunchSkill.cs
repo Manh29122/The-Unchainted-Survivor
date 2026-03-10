@@ -144,10 +144,19 @@ public class PunchSkill : MonoBehaviour
 
                 if (isInCone)
                 {
-                    EnemyHealth enemyHealth = collider.GetComponent<EnemyHealth>();
-                    if (enemyHealth != null)
+                    EnemyUnit enemyUnit = collider.GetComponentInParent<EnemyUnit>();
+                    EnemyHealth enemyHealth = enemyUnit == null ? collider.GetComponentInParent<EnemyHealth>() : null;
+
+                    if (enemyUnit != null || enemyHealth != null)
                     {
-                        enemyHealth.TakeDamage(punchDamage);
+                        if (enemyUnit != null)
+                        {
+                            enemyUnit.TakeDamage(punchDamage);
+                        }
+                        else
+                        {
+                            enemyHealth.TakeDamage(punchDamage);
+                        }
 
                         if (floatingTextPrefab != null)
                         {
@@ -157,12 +166,19 @@ public class PunchSkill : MonoBehaviour
                                 ft.SetText(punchDamage.ToString(), Color.red);
                         }
 
-                        Rigidbody2D enemyRb = collider.GetComponent<Rigidbody2D>();
-                        if (enemyRb != null)
+                        Vector2 knockDir = (collider.transform.position - transform.position).normalized;
+                        if (enemyUnit != null)
                         {
-                            Vector2 knockDir = (collider.transform.position - transform.position).normalized;
-                            enemyRb.linearVelocity = Vector2.zero;
-                            StartCoroutine(ApplyKnockback(enemyRb, knockDir));
+                            enemyUnit.ApplyKnockback(knockDir, knockbackForce, knockbackDuration);
+                        }
+                        else
+                        {
+                            Rigidbody2D enemyRb = collider.GetComponentInParent<Rigidbody2D>();
+                            if (enemyRb != null)
+                            {
+                                enemyRb.linearVelocity = Vector2.zero;
+                                StartCoroutine(ApplyKnockback(enemyRb, knockDir));
+                            }
                         }
 
                         hitEnemy = true;

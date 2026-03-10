@@ -158,6 +158,11 @@ public class ShopItemSlotUI : MonoBehaviour
             }
         }
 
+        if (builder.Length == 0 && !string.IsNullOrWhiteSpace(itemData.description))
+        {
+            builder.AppendLine(itemData.description.Trim());
+        }
+
         return builder.ToString().Trim();
     }
 

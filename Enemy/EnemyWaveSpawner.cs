@@ -1,0 +1,272 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class EnemyWaveSpawner : MonoBehaviour
+{
+    private struct EnemySpawnRequest
+    {
+        public GameObject enemyPrefab;
+        public bool overrideEnemyData;
+        public EnemyRuntimeData runtimeData;
+    }
+
+    [Header("References")]
+    [SerializeField] private Transform player;
+    [SerializeField] private ShopRerollSystem shopRerollSystem;
+
+    [Header("Wave Settings")]
+    [SerializeField] private List<EnemyWaveDefinition> waves = new List<EnemyWaveDefinition>();
+    [SerializeField] private bool autoStartFirstWave = true;
+    [SerializeField] private bool autoAdvanceWave = true;
+    [SerializeField] private int startWaveIndex;
+
+    private readonly List<EnemyUnit> aliveEnemies = new List<EnemyUnit>();
+    private readonly Dictionary<int, List<EnemyUnit>> waveAliveEnemies = new Dictionary<int, List<EnemyUnit>>();
+    private Coroutine waveRoutine;
+    private int currentWaveIndex = -1;
+
+    public event Action<int> OnWaveStarted;
+    public event Action<int> OnWaveCompleted;
+
+    public int CurrentWaveIndex => currentWaveIndex;
+
+    private void Start()
+    {
+        ResolvePlayer();
+
+        if (autoStartFirstWave)
+        {
+            StartWave(startWaveIndex);
+        }
+    }
+
+    public void StartWave(int waveIndex)
+    {
+        if (waveIndex < 0 || waveIndex >= waves.Count)
+        {
+            Debug.LogWarning($"[EnemyWaveSpawner] Invalid wave index: {waveIndex}");
+            return;
+        }
+
+        ResolveReferences();
+
+        if (waveRoutine != null)
+        {
+            StopCoroutine(waveRoutine);
+        }
+
+        if (currentWaveIndex >= 0 && waveIndex != currentWaveIndex && shopRerollSystem != null)
+        {
+            shopRerollSystem.GrantFreeRerolls(1);
+        }
+
+        currentWaveIndex = waveIndex;
+        waveAliveEnemies[waveIndex] = new List<EnemyUnit>();
+        waveRoutine = StartCoroutine(RunWave(waves[waveIndex], waveIndex));
+    }
+
+    public void StartNextWave()
+    {
+        int nextWave = currentWaveIndex + 1;
+        if (nextWave >= waves.Count)
+        {
+            return;
+        }
+
+        StartWave(nextWave);
+    }
+
+    private IEnumerator RunWave(EnemyWaveDefinition waveDefinition, int waveIndex)
+    {
+        ResolveReferences();
+        List<EnemySpawnRequest> requests = BuildSpawnRequests(waveDefinition);
+        float waveEndTime = waveDefinition.waveDuration > 0f ? Time.time + waveDefinition.waveDuration : float.PositiveInfinity;
+
+        OnWaveStarted?.Invoke(waveIndex);
+
+        for (int i = 0; i < requests.Count; i++)
+        {
+            if (Time.time >= waveEndTime)
+            {
+                break;
+            }
+
+            SpawnEnemy(requests[i], waveDefinition);
+
+            float delay = Mathf.Max(0f, waveDefinition.delayBetweenSpawns);
+            if (delay > 0f && i < requests.Count - 1)
+            {
+                yield return new WaitForSeconds(delay);
+            }
+        }
+
+        while (true)
+        {
+            bool allWaveEnemiesDefeated = !waveDefinition.waitForAllEnemiesDefeated || GetAliveEnemyCountForWave(waveIndex) <= 0;
+            bool timeExpired = Time.time >= waveEndTime;
+
+            if (allWaveEnemiesDefeated || timeExpired)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        OnWaveCompleted?.Invoke(waveIndex);
+        waveRoutine = null;
+
+        if (autoAdvanceWave && waveIndex + 1 < waves.Count)
+        {
+            StartWave(waveIndex + 1);
+        }
+    }
+
+    private void SpawnEnemy(EnemySpawnRequest request, EnemyWaveDefinition waveDefinition)
+    {
+        if (request.enemyPrefab == null)
+        {
+            return;
+        }
+
+        ResolvePlayer();
+
+        Vector3 spawnPosition = GetSpawnPosition(waveDefinition);
+        GameObject enemyObject = Instantiate(request.enemyPrefab, spawnPosition, Quaternion.identity);
+
+        EnemyUnit enemyUnit = enemyObject.GetComponent<EnemyUnit>();
+        if (enemyUnit == null)
+        {
+            enemyUnit = enemyObject.AddComponent<EnemyUnit>();
+        }
+
+        if (request.overrideEnemyData)
+        {
+            enemyUnit.Initialize(request.runtimeData, player);
+        }
+        else
+        {
+            enemyUnit.SetTargetPlayer(player);
+        }
+
+        enemyUnit.OnDied += HandleEnemyDied;
+        aliveEnemies.Add(enemyUnit);
+
+        if (!waveAliveEnemies.TryGetValue(currentWaveIndex, out List<EnemyUnit> waveEnemies))
+        {
+            waveEnemies = new List<EnemyUnit>();
+            waveAliveEnemies[currentWaveIndex] = waveEnemies;
+        }
+
+        waveEnemies.Add(enemyUnit);
+    }
+
+    private void HandleEnemyDied(EnemyUnit enemyUnit)
+    {
+        if (enemyUnit == null)
+        {
+            return;
+        }
+
+        enemyUnit.OnDied -= HandleEnemyDied;
+        aliveEnemies.Remove(enemyUnit);
+
+        foreach (KeyValuePair<int, List<EnemyUnit>> pair in waveAliveEnemies)
+        {
+            pair.Value.Remove(enemyUnit);
+        }
+    }
+
+    private List<EnemySpawnRequest> BuildSpawnRequests(EnemyWaveDefinition waveDefinition)
+    {
+        List<EnemySpawnRequest> requests = new List<EnemySpawnRequest>();
+        if (waveDefinition.enemies == null)
+        {
+            return requests;
+        }
+
+        for (int entryIndex = 0; entryIndex < waveDefinition.enemies.Count; entryIndex++)
+        {
+            EnemySpawnEntry entry = waveDefinition.enemies[entryIndex];
+            int spawnCount = Mathf.Max(0, entry.spawnCount);
+
+            for (int spawnIndex = 0; spawnIndex < spawnCount; spawnIndex++)
+            {
+                requests.Add(new EnemySpawnRequest
+                {
+                    enemyPrefab = entry.enemyPrefab,
+                    overrideEnemyData = entry.overrideEnemyData,
+                    runtimeData = entry.overrideData
+                });
+            }
+        }
+
+        ShuffleRequests(requests);
+        return requests;
+    }
+
+    private void ShuffleRequests(List<EnemySpawnRequest> requests)
+    {
+        for (int index = 0; index < requests.Count; index++)
+        {
+            int swapIndex = UnityEngine.Random.Range(index, requests.Count);
+            EnemySpawnRequest temp = requests[index];
+            requests[index] = requests[swapIndex];
+            requests[swapIndex] = temp;
+        }
+    }
+
+    private Vector3 GetSpawnPosition(EnemyWaveDefinition waveDefinition)
+    {
+        Vector3 center = player != null ? player.position : transform.position;
+        float minRadius = Mathf.Max(0f, waveDefinition.minSpawnRadius);
+        float maxRadius = Mathf.Max(minRadius, waveDefinition.maxSpawnRadius);
+        Vector2 offset = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range(minRadius, maxRadius);
+        return center + new Vector3(offset.x, offset.y, 0f);
+    }
+
+    private void ResolvePlayer()
+    {
+        if (player != null)
+        {
+            return;
+        }
+
+        GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
+        if (playerObject != null)
+        {
+            player = playerObject.transform;
+        }
+    }
+
+    private void ResolveReferences()
+    {
+        ResolvePlayer();
+
+        if (shopRerollSystem == null)
+        {
+            shopRerollSystem = FindFirstObjectByType<ShopRerollSystem>();
+        }
+    }
+
+    private int GetAliveEnemyCountForWave(int waveIndex)
+    {
+        if (!waveAliveEnemies.TryGetValue(waveIndex, out List<EnemyUnit> waveEnemies) || waveEnemies == null)
+        {
+            return 0;
+        }
+
+        for (int index = waveEnemies.Count - 1; index >= 0; index--)
+        {
+            EnemyUnit enemyUnit = waveEnemies[index];
+            if (enemyUnit == null || !enemyUnit.IsAlive)
+            {
+                waveEnemies.RemoveAt(index);
+            }
+        }
+
+        return waveEnemies.Count;
+    }
+}

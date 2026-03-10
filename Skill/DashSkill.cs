@@ -218,10 +218,20 @@ public class DashSkill : MonoBehaviour
             if (collider.CompareTag("Enemy") && !hitEnemies.Contains(collider.gameObject))
             {
                 // Damage the enemy
-                EnemyHealth enemyHealth = collider.GetComponent<EnemyHealth>();
-                if (enemyHealth != null)
+                EnemyUnit enemyUnit = collider.GetComponentInParent<EnemyUnit>();
+                EnemyHealth enemyHealth = enemyUnit == null ? collider.GetComponentInParent<EnemyHealth>() : null;
+
+                if (enemyUnit != null || enemyHealth != null)
                 {
-                    enemyHealth.TakeDamage(dashDamage);
+                    if (enemyUnit != null)
+                    {
+                        enemyUnit.TakeDamage(dashDamage);
+                    }
+                    else
+                    {
+                        enemyHealth.TakeDamage(dashDamage);
+                    }
+
                     hitEnemies.Add(collider.gameObject);
 
                     // Optional: Add hit effect

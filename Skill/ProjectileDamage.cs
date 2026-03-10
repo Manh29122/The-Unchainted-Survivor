@@ -23,10 +23,20 @@ public class ProjectileDamage : MonoBehaviour
     {
         if (collision.CompareTag("Enemy"))
         {
-            EnemyHealth enemyHealth = collision.GetComponent<EnemyHealth>();
-            if (enemyHealth != null)
+            EnemyUnit enemyUnit = collision.GetComponentInParent<EnemyUnit>();
+            EnemyHealth enemyHealth = enemyUnit == null ? collision.GetComponentInParent<EnemyHealth>() : null;
+
+            if (enemyUnit != null || enemyHealth != null)
             {
-                enemyHealth.TakeDamage(damage);
+                if (enemyUnit != null)
+                {
+                    enemyUnit.TakeDamage(damage);
+                }
+                else
+                {
+                    enemyHealth.TakeDamage(damage);
+                }
+
                 Debug.Log($"Projectile hit enemy for {damage} damage!");
 
                 if (destroyOnHit)

@@ -53,6 +53,10 @@ public class PlayerStats : MonoBehaviour
     public int maxHP = 100;
     public int currentHP = 100;
 
+    [Header("Damage Cooldown")]
+    [SerializeField] private bool enableDamageInvulnerability = true;
+    [SerializeField] private float damageInvulnerabilityDuration = 3f;
+
     [Header("Combat Stats")]
     public float damagePercent = 0f;
     public float meleeDamage = 0f;
@@ -95,6 +99,7 @@ public class PlayerStats : MonoBehaviour
     public float expMultiplier = 1f;
 
     private readonly Dictionary<TemporaryBonusType, Coroutine> activeTemporaryBonuses = new Dictionary<TemporaryBonusType, Coroutine>();
+    private float nextDamageAllowedTime = float.NegativeInfinity;
 
     // ── Events ───────────────────────────────
     public event Action<int, int> OnExpChanged;     // (current, toNext)
@@ -292,6 +297,11 @@ public class PlayerStats : MonoBehaviour
             return;
         }
 
+        if (!CanTakeDamage())
+        {
+            return;
+        }
+
         if (TryDodge(validDamage))
         {
             return;
@@ -299,6 +309,7 @@ public class PlayerStats : MonoBehaviour
 
         int mitigatedDamage = GetDamageAfterArmor(validDamage);
         currentHP = Mathf.Max(0, currentHP - mitigatedDamage);
+        nextDamageAllowedTime = Time.time + Mathf.Max(0f, damageInvulnerabilityDuration);
         OnHPChanged?.Invoke(currentHP, maxHP);
         NotifyStatsChanged();
 
@@ -317,6 +328,21 @@ public class PlayerStats : MonoBehaviour
         float damageMultiplier = 100f / (100f + armor);
         int mitigatedDamage = Mathf.RoundToInt(validDamage * damageMultiplier);
         return Mathf.Max(1, mitigatedDamage);
+    }
+
+    public bool CanTakeDamage()
+    {
+        return !enableDamageInvulnerability || Time.time >= nextDamageAllowedTime;
+    }
+
+    public float GetRemainingDamageInvulnerabilityTime()
+    {
+        if (!enableDamageInvulnerability)
+        {
+            return 0f;
+        }
+
+        return Mathf.Max(0f, nextDamageAllowedTime - Time.time);
     }
 
     void OnDead() => Debug.Log("[Player] 💀 Dead!");

@@ -36,16 +36,19 @@ public class ShopRerollSystem : MonoBehaviour
     };
 
     private readonly List<UnchaintedItemData> currentOffers = new List<UnchaintedItemData>();
+    private int availableFreeRerolls;
 
     public event Action<List<UnchaintedItemData>> OnOffersRolled;
     public event Action<List<UnchaintedItemData>> OnOffersChanged;
     public event Action<int> OnRerollCostChanged;
+    public event Action<int> OnFreeRerollsChanged;
     public event Action<int> OnRerollFailed;
     public event Action<UnchaintedItemData> OnItemPurchased;
     public event Action<UnchaintedItemData> OnPurchaseFailed;
 
     public IReadOnlyList<UnchaintedItemData> CurrentOffers => currentOffers;
     public int CurrentRerollCost => currentRerollCost;
+    public int AvailableFreeRerolls => availableFreeRerolls;
 
     private void Awake()
     {
@@ -61,7 +64,7 @@ public class ShopRerollSystem : MonoBehaviour
 
     public void RollInitialOffers()
     {
-        GenerateOffers();
+        GenerateOffers(false);
     }
 
     public bool TryBuyOfferAt(int offerIndex)
@@ -103,6 +106,14 @@ public class ShopRerollSystem : MonoBehaviour
     {
         ResolveReferences();
 
+        if (availableFreeRerolls > 0)
+        {
+            availableFreeRerolls--;
+            GenerateOffers(true);
+            OnFreeRerollsChanged?.Invoke(availableFreeRerolls);
+            return true;
+        }
+
         if (playerStats == null)
         {
             Debug.LogWarning("[ShopRerollSystem] PlayerStats not found.");
@@ -115,7 +126,7 @@ public class ShopRerollSystem : MonoBehaviour
             return false;
         }
 
-        GenerateOffers();
+        GenerateOffers(true);
         currentRerollCost = Mathf.Max(1, Mathf.RoundToInt(currentRerollCost * Mathf.Max(1f, rerollCostMultiplier)));
         OnRerollCostChanged?.Invoke(currentRerollCost);
         return true;
@@ -125,6 +136,18 @@ public class ShopRerollSystem : MonoBehaviour
     {
         currentRerollCost = Mathf.Max(1, baseRerollCost);
         OnRerollCostChanged?.Invoke(currentRerollCost);
+    }
+
+    public void GrantFreeRerolls(int amount = 1)
+    {
+        int validAmount = Mathf.Max(0, amount);
+        if (validAmount <= 0)
+        {
+            return;
+        }
+
+        availableFreeRerolls += validAmount;
+        OnFreeRerollsChanged?.Invoke(availableFreeRerolls);
     }
 
     public void SetItemPool(List<UnchaintedItemData> items)
@@ -167,11 +190,15 @@ public class ShopRerollSystem : MonoBehaviour
         }
     }
 
-    private void GenerateOffers()
+    private void GenerateOffers(bool excludeCurrentOffers)
     {
+        List<UnchaintedItemData> previousOffers = new List<UnchaintedItemData>(currentOffers);
         currentOffers.Clear();
 
-        List<UnchaintedItemData> availableItems = GetAvailableItems();
+        List<UnchaintedItemData> availableItems = excludeCurrentOffers
+            ? GetAvailableItemsFromPreviousOffers(previousOffers)
+            : GetAvailableItems();
+
         if (availableItems.Count == 0)
         {
             Debug.LogWarning("[ShopRerollSystem] No valid items available for reroll.");
@@ -195,6 +222,22 @@ public class ShopRerollSystem : MonoBehaviour
         }
 
         NotifyOffersRolled();
+    }
+
+    private List<UnchaintedItemData> GetAvailableItemsFromPreviousOffers(List<UnchaintedItemData> previousOffers)
+    {
+        HashSet<string> excludedItemIds = new HashSet<string>(StringComparer.Ordinal);
+        HashSet<UnchaintedItemData> excludedItems = new HashSet<UnchaintedItemData>();
+
+        if (previousOffers != null)
+        {
+            for (int index = 0; index < previousOffers.Count; index++)
+            {
+                AddExcludedItem(previousOffers[index], excludedItemIds, excludedItems);
+            }
+        }
+
+        return GetAvailableItems(excludedItemIds, excludedItems);
     }
 
     private void NotifyOffersRolled()

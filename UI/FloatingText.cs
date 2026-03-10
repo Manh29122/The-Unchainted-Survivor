@@ -3,26 +3,27 @@ using TMPro;
 
 /// <summary>
 /// Simple floating text that rises and fades over a short time.
-/// Attach to a prefab containing a TextMeshPro component.
+/// Attach to a prefab containing a TMP text component.
 /// </summary>
-[RequireComponent(typeof(TextMeshPro))]
 public class FloatingText : MonoBehaviour
 {
     public float moveSpeed = 1.5f;
     public float duration = 0.8f;
     public Vector3 offset = Vector3.up * 0.5f;
 
-    private TextMeshPro tmp;
+    private TMP_Text tmp;
+    private RectTransform rectTransform;
     private float elapsed;
 
     void Awake()
     {
-        tmp = GetComponent<TextMeshPro>();
+        tmp = GetComponent<TMP_Text>();
+        rectTransform = transform as RectTransform;
     }
 
     public void SetText(string message, Color color)
     {
-        if (tmp == null) tmp = GetComponent<TextMeshPro>();
+        if (tmp == null) tmp = GetComponent<TMP_Text>();
         tmp.text = message;
         tmp.color = color;
     }
@@ -30,7 +31,15 @@ public class FloatingText : MonoBehaviour
     void Update()
     {
         elapsed += Time.deltaTime;
-        transform.position += offset * (moveSpeed * Time.deltaTime);
+
+        if (rectTransform != null)
+        {
+            rectTransform.anchoredPosition += (Vector2)(offset * (moveSpeed * Time.deltaTime));
+        }
+        else
+        {
+            transform.position += offset * (moveSpeed * Time.deltaTime);
+        }
 
         // fade out over time
         if (tmp != null)

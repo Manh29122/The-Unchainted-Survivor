@@ -4,7 +4,7 @@ using UnityEngine.Pool;
 
 /// <summary>
 /// Spawn item khi enemy ch?t.
-/// G?n vào GameManager ho?c g?i ItemSpawner.Instance.Drop() t? EnemyDeathSystem.
+/// G?n vï¿½o GameManager ho?c g?i ItemSpawner.Instance.Drop() t? EnemyDeathSystem.
 /// </summary>
 public class ItemSpawner : MonoBehaviour
 {
@@ -17,9 +17,9 @@ public class ItemSpawner : MonoBehaviour
     public class DropEntry
     {
         public ItemData itemData;
-        public GameObject prefab;           // Prefab có PickupItem + SpriteRenderer
+        public GameObject prefab;           // Prefab cï¿½ PickupItem + SpriteRenderer
         [Range(0f, 1f)]
-        public float dropChance = 0.5f;     // 0 = không bao gi?, 1 = luôn luôn
+        public float dropChance = 0.5f;     // 0 = khï¿½ng bao gi?, 1 = luï¿½n luï¿½n
         public int poolSize = 30;
         [HideInInspector] public ObjectPool pool;
     }
@@ -28,7 +28,7 @@ public class ItemSpawner : MonoBehaviour
     public List<DropEntry> dropTable = new List<DropEntry>();
 
     [Header("Spawn Settings")]
-    [Tooltip("V?t ph?m v?ng ra xung quanh v? trí drop")]
+    [Tooltip("V?t ph?m v?ng ra xung quanh v? trï¿½ drop")]
     public float scatterRadius = 0.5f;
 
     private Transform poolContainer;
@@ -58,7 +58,7 @@ public class ItemSpawner : MonoBehaviour
     // ?????????????????????????????????????????
 
     /// <summary>
-    /// Drop ng?u nhiên t? drop table t?i v? trí ch? ??nh.
+    /// Drop ng?u nhiï¿½n t? drop table t?i v? trï¿½ ch? ??nh.
     /// G?i khi enemy ch?t: ItemSpawner.Instance.Drop(enemy.position);
     /// </summary>
     public void Drop(Vector3 position)
@@ -72,12 +72,49 @@ public class ItemSpawner : MonoBehaviour
         }
     }
 
-    /// <summary>Drop 1 lo?i item c? th? (không theo xác su?t)</summary>
+    /// <summary>Drop 1 lo?i item c? th? (khï¿½ng theo xï¿½c su?t)</summary>
     public void DropSpecific(string itemName, Vector3 position)
     {
         var entry = dropTable.Find(e => e.itemData?.itemName == itemName);
         if (entry != null)
             SpawnItem(entry, position);
+    }
+
+    public void DropSpecific(ItemData itemData, Vector3 position, int count = 1)
+    {
+        if (itemData == null)
+        {
+            return;
+        }
+
+        DropEntry entry = dropTable.Find(e => e.itemData == itemData);
+        if (entry == null)
+        {
+            Debug.LogWarning($"[ItemSpawner] No DropEntry found for item: {itemData.itemName}");
+            return;
+        }
+
+        int validCount = Mathf.Max(0, count);
+        for (int index = 0; index < validCount; index++)
+        {
+            SpawnItem(entry, position);
+        }
+    }
+
+    public void DropPrefab(GameObject prefab, Vector3 position, int count = 1)
+    {
+        if (prefab == null)
+        {
+            return;
+        }
+
+        int validCount = Mathf.Max(0, count);
+        for (int index = 0; index < validCount; index++)
+        {
+            Vector2 scatter = Random.insideUnitCircle * scatterRadius;
+            Vector3 spawnPos = position + new Vector3(scatter.x, scatter.y, 0f);
+            Instantiate(prefab, spawnPos, Quaternion.identity);
+        }
     }
 
     /// <summary>Drop t?t c? item ??m b?o (boss loot)</summary>
@@ -92,13 +129,13 @@ public class ItemSpawner : MonoBehaviour
     // ?????????????????????????????????????????
     void SpawnItem(DropEntry entry, Vector3 basePosition)
     {
-        // V?ng ra quanh v? trí drop
+        // V?ng ra quanh v? trï¿½ drop
         Vector2 scatter = Random.insideUnitCircle * scatterRadius;
         Vector3 spawnPos = basePosition + new Vector3(scatter.x, scatter.y, 0f);
 
         GameObject obj = entry.pool.Get(spawnPos);
 
-        // Gán data và pool vào PickupItem
+        // Gï¿½n data vï¿½ pool vï¿½o PickupItem
         var pickup = obj.GetComponent<PickupItem>();
         if (pickup != null)
         {
