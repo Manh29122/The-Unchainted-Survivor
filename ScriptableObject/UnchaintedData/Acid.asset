@@ -17,8 +17,8 @@ MonoBehaviour:
   description: 
   icon: {fileID: -5063555655813669412, guid: 502acb2015202b446a33819f00f7066e, type: 3}
   tier: 1
-  price: 25
-  maxStacks: 1
+  price: 20
+  maxStacks: 300
   statModifiers:
   - statType: 0
     value: 8

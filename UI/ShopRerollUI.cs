@@ -7,7 +7,9 @@ public class ShopRerollUI : MonoBehaviour
 {
     [Header("References")]
     [SerializeField] private ShopRerollSystem shopSystem;
+    [SerializeField] private EnemyWaveSpawner waveSpawner;
     [SerializeField] private Button rerollButton;
+    [SerializeField] private Button closeShopButton;
     [SerializeField] private TMP_Text rerollCostText;
     [SerializeField] private TMP_Text feedbackText;
     [SerializeField] private List<ShopItemSlotUI> itemSlots = new List<ShopItemSlotUI>();
@@ -31,9 +33,19 @@ public class ShopRerollUI : MonoBehaviour
             shopSystem = FindFirstObjectByType<ShopRerollSystem>();
         }
 
+        if (waveSpawner == null)
+        {
+            waveSpawner = FindFirstObjectByType<EnemyWaveSpawner>();
+        }
+
         if (rerollButton != null)
         {
             rerollButton.onClick.AddListener(HandleRerollButton);
+        }
+
+        if (closeShopButton != null)
+        {
+            closeShopButton.onClick.AddListener(HandleCloseShopButton);
         }
     }
 
@@ -58,7 +70,7 @@ public class ShopRerollUI : MonoBehaviour
 
     private void Start()
     {
-        if (shopSystem != null && shopSystem.CurrentOffers.Count == 0)
+        if (gameObject.activeSelf && shopSystem != null && shopSystem.CurrentOffers.Count == 0)
         {
             shopSystem.RollInitialOffers();
         }
@@ -80,6 +92,43 @@ public class ShopRerollUI : MonoBehaviour
         shopSystem.OnItemPurchased -= HandleItemPurchased;
     }
 
+    public void OpenShop()
+    {
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
+        if (shopSystem == null)
+        {
+            shopSystem = FindFirstObjectByType<ShopRerollSystem>();
+        }
+
+        if (waveSpawner == null)
+        {
+            waveSpawner = FindFirstObjectByType<EnemyWaveSpawner>();
+        }
+
+        SetFeedback(string.Empty);
+
+        if (shopSystem != null)
+        {
+            shopSystem.RollInitialOffers();
+            RefreshRerollCost(shopSystem.CurrentRerollCost);
+            RefreshOffers(new List<UnchaintedItemData>(shopSystem.CurrentOffers));
+        }
+    }
+
+    public void HideShop()
+    {
+        SetFeedback(string.Empty);
+
+        if (gameObject.activeSelf)
+        {
+            gameObject.SetActive(false);
+        }
+    }
+
     private void HandleRerollButton()
     {
         if (shopSystem == null)
@@ -91,6 +140,16 @@ public class ShopRerollUI : MonoBehaviour
         if (success)
         {
             SetFeedback(string.Empty);
+        }
+    }
+
+    private void HandleCloseShopButton()
+    {
+        HideShop();
+
+        if (waveSpawner != null)
+        {
+            waveSpawner.StartNextWave();
         }
     }
 

@@ -1,0 +1,22 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a92a16e7ef41f448a12cd215af48abb, type: 3}
+  m_Name: FireballBurstCurrentHpEffect
+  m_EditorClassIdentifier: Assembly-CSharp::FireballBurstCurrentHpEffect
+  projectilePrefab: {fileID: 8852603119361827770, guid: 688e085a250410d4fb963d052fc62c4a, type: 3}
+  intervalSeconds: 5
+  projectileCount: 8
+  damagePercentOfCurrentHp: 50
+  projectileSpeed: 8
+  projectileLifetime: 3
+  spawnOffset: 0.35
+  multiplyDamagePercentByStack: 0

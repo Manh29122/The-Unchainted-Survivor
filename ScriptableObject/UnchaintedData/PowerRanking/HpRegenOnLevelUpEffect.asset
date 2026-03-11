@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 79e226ab8ec3d234a889cf563bb25c9f, type: 3}
+  m_Name: HpRegenOnLevelUpEffect
+  m_EditorClassIdentifier: Assembly-CSharp::HpRegenOnLevelUpEffect
+  hpRegenPerLevel: 1
+  multiplyByStack: 1

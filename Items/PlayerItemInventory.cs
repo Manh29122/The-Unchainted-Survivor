@@ -93,6 +93,16 @@ public class PlayerItemInventory : MonoBehaviour
             return false;
         }
 
+        if (!PrepareWeaponSlotReplacement(itemData, amount))
+        {
+            return false;
+        }
+
+        if (!CanAddItem(itemData, amount))
+        {
+            return false;
+        }
+
         OwnedItemEntry entry = GetEntry(itemData);
         if (entry == null)
         {
@@ -120,6 +130,41 @@ public class PlayerItemInventory : MonoBehaviour
 
         NotifyInventoryChanged();
         return true;
+    }
+
+    public bool CanAddItem(UnchaintedItemData itemData, int amount = 1)
+    {
+        if (itemData == null || amount <= 0)
+        {
+            return false;
+        }
+
+        OwnedItemEntry entry = GetEntry(itemData);
+        int currentStacks = entry != null ? entry.stackCount : 0;
+        int maxStacks = Mathf.Max(1, itemData.maxStacks);
+        if (currentStacks + amount > maxStacks)
+        {
+            return false;
+        }
+
+        int requiredWeaponSlots = GetWeaponEffectCount(itemData) * amount;
+        if (requiredWeaponSlots <= 0)
+        {
+            return true;
+        }
+
+        WeaponOrbitController controller = GetComponent<WeaponOrbitController>();
+        if (controller == null)
+        {
+            return true;
+        }
+
+        if (controller.EquippedWeaponCount + requiredWeaponSlots <= controller.MaxWeaponSlots)
+        {
+            return true;
+        }
+
+        return controller.TryGetReplacementCandidate(itemData, out _);
     }
 
     public bool RemoveItem(UnchaintedItemData itemData, int amount = 1)
@@ -256,6 +301,58 @@ public class PlayerItemInventory : MonoBehaviour
     private void NotifyInventoryChanged()
     {
         OnInventoryChanged?.Invoke();
+    }
+
+    private bool PrepareWeaponSlotReplacement(UnchaintedItemData itemData, int amount)
+    {
+        int requiredWeaponSlots = GetWeaponEffectCount(itemData) * amount;
+        if (requiredWeaponSlots <= 0)
+        {
+            return true;
+        }
+
+        WeaponOrbitController controller = GetComponent<WeaponOrbitController>();
+        if (controller == null)
+        {
+            return true;
+        }
+
+        int slotsNeeded = requiredWeaponSlots;
+        while (slotsNeeded > 0 && controller.EquippedWeaponCount >= controller.MaxWeaponSlots)
+        {
+            if (!controller.TryGetReplacementCandidate(itemData, out UnchaintedItemData replacementItemData) || replacementItemData == null)
+            {
+                return false;
+            }
+
+            if (!RemoveItem(replacementItemData, 1))
+            {
+                return false;
+            }
+
+            slotsNeeded--;
+        }
+
+        return true;
+    }
+
+    private static int GetWeaponEffectCount(UnchaintedItemData itemData)
+    {
+        if (itemData == null || itemData.specialEffects == null)
+        {
+            return 0;
+        }
+
+        int count = 0;
+        for (int index = 0; index < itemData.specialEffects.Count; index++)
+        {
+            if (itemData.specialEffects[index] is WeaponOrbitEffect)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private void SyncItemEffects(UnchaintedItemData itemData, int stackCount)

@@ -13,11 +13,11 @@ MonoBehaviour:
   m_Name: JuideLeak
   m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
   itemId: 2
-  itemName: Litter Power
+  itemName: Juide Leak
   description: 
   icon: {fileID: 2185167392590505104, guid: 502acb2015202b446a33819f00f7066e, type: 3}
   tier: 0
-  price: 5
+  price: 15
   maxStacks: 300
   statModifiers:
   - statType: 11

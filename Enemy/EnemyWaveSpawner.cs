@@ -15,31 +15,73 @@ public class EnemyWaveSpawner : MonoBehaviour
     [Header("References")]
     [SerializeField] private Transform player;
     [SerializeField] private ShopRerollSystem shopRerollSystem;
+    [SerializeField] private ShopRerollUI shopRerollUI;
 
     [Header("Wave Settings")]
     [SerializeField] private List<EnemyWaveDefinition> waves = new List<EnemyWaveDefinition>();
     [SerializeField] private bool autoStartFirstWave = true;
     [SerializeField] private bool autoAdvanceWave = true;
     [SerializeField] private int startWaveIndex;
+    [SerializeField] private bool openShopBetweenWaves = true;
 
     private readonly List<EnemyUnit> aliveEnemies = new List<EnemyUnit>();
     private readonly Dictionary<int, List<EnemyUnit>> waveAliveEnemies = new Dictionary<int, List<EnemyUnit>>();
     private Coroutine waveRoutine;
     private int currentWaveIndex = -1;
+    private float currentWaveDuration;
+    private float currentWaveEndTime;
+    private bool isWaveActive;
 
     public event Action<int> OnWaveStarted;
     public event Action<int> OnWaveCompleted;
+    public event Action<int, float, float> OnWaveTimerUpdated;
 
     public int CurrentWaveIndex => currentWaveIndex;
+    public bool IsWaveActive => isWaveActive;
+    public float CurrentWaveDuration => currentWaveDuration;
+    public float CurrentWaveRemainingTime
+    {
+        get
+        {
+            if (!isWaveActive)
+            {
+                return 0f;
+            }
+
+            if (float.IsInfinity(currentWaveEndTime))
+            {
+                return 0f;
+            }
+
+            return Mathf.Max(0f, currentWaveEndTime - Time.time);
+        }
+    }
 
     private void Start()
     {
         ResolvePlayer();
+        ResolveReferences();
+
+        if (shopRerollUI != null)
+        {
+            shopRerollUI.HideShop();
+        }
 
         if (autoStartFirstWave)
         {
             StartWave(startWaveIndex);
         }
+    }
+
+    private void Update()
+    {
+        if (!isWaveActive)
+        {
+            return;
+        }
+
+        float remainingTime = CurrentWaveRemainingTime;
+        OnWaveTimerUpdated?.Invoke(currentWaveIndex, remainingTime, currentWaveDuration);
     }
 
     public void StartWave(int waveIndex)
@@ -57,13 +99,18 @@ public class EnemyWaveSpawner : MonoBehaviour
             StopCoroutine(waveRoutine);
         }
 
-        if (currentWaveIndex >= 0 && waveIndex != currentWaveIndex && shopRerollSystem != null)
-        {
-            shopRerollSystem.GrantFreeRerolls(1);
-        }
-
         currentWaveIndex = waveIndex;
         waveAliveEnemies[waveIndex] = new List<EnemyUnit>();
+        currentWaveDuration = Mathf.Max(0f, waves[waveIndex].waveDuration);
+        currentWaveEndTime = currentWaveDuration > 0f ? Time.time + currentWaveDuration : float.PositiveInfinity;
+        isWaveActive = true;
+
+        if (shopRerollUI != null)
+        {
+            shopRerollUI.HideShop();
+        }
+
+        OnWaveTimerUpdated?.Invoke(currentWaveIndex, CurrentWaveRemainingTime, currentWaveDuration);
         waveRoutine = StartCoroutine(RunWave(waves[waveIndex], waveIndex));
     }
 
@@ -82,13 +129,13 @@ public class EnemyWaveSpawner : MonoBehaviour
     {
         ResolveReferences();
         List<EnemySpawnRequest> requests = BuildSpawnRequests(waveDefinition);
-        float waveEndTime = waveDefinition.waveDuration > 0f ? Time.time + waveDefinition.waveDuration : float.PositiveInfinity;
+        bool hasWaveDuration = waveDefinition.waveDuration > 0f;
 
         OnWaveStarted?.Invoke(waveIndex);
 
         for (int i = 0; i < requests.Count; i++)
         {
-            if (Time.time >= waveEndTime)
+            if (Time.time >= currentWaveEndTime)
             {
                 break;
             }
@@ -104,10 +151,21 @@ public class EnemyWaveSpawner : MonoBehaviour
 
         while (true)
         {
-            bool allWaveEnemiesDefeated = !waveDefinition.waitForAllEnemiesDefeated || GetAliveEnemyCountForWave(waveIndex) <= 0;
-            bool timeExpired = Time.time >= waveEndTime;
+            bool allWaveEnemiesDefeated = GetAliveEnemyCountForWave(waveIndex) <= 0;
+            bool timeExpired = hasWaveDuration && Time.time >= currentWaveEndTime;
 
-            if (allWaveEnemiesDefeated || timeExpired)
+            if (timeExpired)
+            {
+                DestroyAllAliveEnemies();
+                break;
+            }
+
+            if (waveDefinition.waitForAllEnemiesDefeated && allWaveEnemiesDefeated)
+            {
+                break;
+            }
+
+            if (!hasWaveDuration && !waveDefinition.waitForAllEnemiesDefeated)
             {
                 break;
             }
@@ -115,10 +173,23 @@ public class EnemyWaveSpawner : MonoBehaviour
             yield return null;
         }
 
+        isWaveActive = false;
+        currentWaveEndTime = 0f;
+        OnWaveTimerUpdated?.Invoke(waveIndex, 0f, currentWaveDuration);
         OnWaveCompleted?.Invoke(waveIndex);
         waveRoutine = null;
 
-        if (autoAdvanceWave && waveIndex + 1 < waves.Count)
+        bool hasNextWave = waveIndex + 1 < waves.Count;
+        if (hasNextWave && openShopBetweenWaves)
+        {
+            PrepareShopForNextWave();
+            if (OpenShop())
+            {
+                yield break;
+            }
+        }
+
+        if (autoAdvanceWave && hasNextWave)
         {
             StartWave(waveIndex + 1);
         }
@@ -249,6 +320,11 @@ public class EnemyWaveSpawner : MonoBehaviour
         {
             shopRerollSystem = FindFirstObjectByType<ShopRerollSystem>();
         }
+
+        if (shopRerollUI == null)
+        {
+            shopRerollUI = FindFirstObjectByType<ShopRerollUI>(FindObjectsInactive.Include);
+        }
     }
 
     private int GetAliveEnemyCountForWave(int waveIndex)
@@ -268,5 +344,50 @@ public class EnemyWaveSpawner : MonoBehaviour
         }
 
         return waveEnemies.Count;
+    }
+
+    private void DestroyAllAliveEnemies()
+    {
+        for (int index = aliveEnemies.Count - 1; index >= 0; index--)
+        {
+            EnemyUnit enemyUnit = aliveEnemies[index];
+            if (enemyUnit == null)
+            {
+                aliveEnemies.RemoveAt(index);
+                continue;
+            }
+
+            enemyUnit.OnDied -= HandleEnemyDied;
+            Destroy(enemyUnit.gameObject);
+        }
+
+        aliveEnemies.Clear();
+
+        foreach (KeyValuePair<int, List<EnemyUnit>> pair in waveAliveEnemies)
+        {
+            pair.Value.Clear();
+        }
+    }
+
+    private void PrepareShopForNextWave()
+    {
+        if (shopRerollSystem == null)
+        {
+            return;
+        }
+
+        shopRerollSystem.ResetRerollCost();
+        shopRerollSystem.GrantFreeRerolls(1);
+    }
+
+    private bool OpenShop()
+    {
+        if (shopRerollUI == null)
+        {
+            return false;
+        }
+
+        shopRerollUI.OpenShop();
+        return true;
     }
 }
