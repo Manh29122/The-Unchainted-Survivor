@@ -29,6 +29,13 @@ public class EnemyWaveSpawner : MonoBehaviour
     [SerializeField] private bool openShopBetweenWaves = true;
     [SerializeField] private int enemyPoolPreload = 16;
 
+    [Header("Screen Density Control")]
+    [SerializeField] private int maxEnemiesVisibleOnScreen = 20;
+    [SerializeField] private float visibleViewportMargin = 0.05f;
+    [SerializeField] private bool repositionOffscreenEnemies = true;
+    [SerializeField] private float offscreenRepositionInterval = 1f;
+    [SerializeField] private int offscreenPositionSearchAttempts = 12;
+
     private readonly List<EnemyUnit> aliveEnemies = new List<EnemyUnit>();
     private readonly Dictionary<int, List<EnemyUnit>> waveAliveEnemies = new Dictionary<int, List<EnemyUnit>>();
     private Coroutine waveRoutine;
@@ -37,6 +44,8 @@ public class EnemyWaveSpawner : MonoBehaviour
     private float currentWaveEndTime;
     private bool isWaveActive;
     private GameObject playerVisualRoot;
+    private EnemyWaveDefinition currentWaveDefinition;
+    private float nextOffscreenRepositionTime;
 
     public event Action<int> OnWaveStarted;
     public event Action<int> OnWaveCompleted;
@@ -88,6 +97,7 @@ public class EnemyWaveSpawner : MonoBehaviour
 
         float remainingTime = CurrentWaveRemainingTime;
         OnWaveTimerUpdated?.Invoke(currentWaveIndex, remainingTime, currentWaveDuration);
+        MaintainEnemyScreenDensity();
     }
 
     public void StartWave(int waveIndex)
@@ -106,10 +116,12 @@ public class EnemyWaveSpawner : MonoBehaviour
         }
 
         currentWaveIndex = waveIndex;
+        currentWaveDefinition = waves[waveIndex];
         waveAliveEnemies[waveIndex] = new List<EnemyUnit>();
         currentWaveDuration = Mathf.Max(0f, waves[waveIndex].waveDuration);
         currentWaveEndTime = currentWaveDuration > 0f ? Time.time + currentWaveDuration : float.PositiveInfinity;
         isWaveActive = true;
+        nextOffscreenRepositionTime = Time.time + Mathf.Max(0.1f, offscreenRepositionInterval);
         SetPlayerVisualVisible(true);
         ResumePlayerEffects();
 
@@ -148,6 +160,16 @@ public class EnemyWaveSpawner : MonoBehaviour
                 break;
             }
 
+            while (isWaveActive && !CanSpawnMoreVisibleEnemies())
+            {
+                yield return null;
+            }
+
+            if (!isWaveActive)
+            {
+                yield break;
+            }
+
             SpawnEnemy(requests[i], waveDefinition);
 
             float delay = Mathf.Max(0f, waveDefinition.delayBetweenSpawns);
@@ -183,6 +205,8 @@ public class EnemyWaveSpawner : MonoBehaviour
 
         isWaveActive = false;
         currentWaveEndTime = 0f;
+        currentWaveDefinition = default;
+        nextOffscreenRepositionTime = 0f;
         SetPlayerVisualVisible(false);
         PausePlayerEffects();
         OnWaveTimerUpdated?.Invoke(waveIndex, 0f, currentWaveDuration);
@@ -265,6 +289,41 @@ public class EnemyWaveSpawner : MonoBehaviour
         }
     }
 
+    private void MaintainEnemyScreenDensity()
+    {
+        PruneAliveEnemies();
+
+        if (!repositionOffscreenEnemies || Time.time < nextOffscreenRepositionTime)
+        {
+            return;
+        }
+
+        nextOffscreenRepositionTime = Time.time + Mathf.Max(0.1f, offscreenRepositionInterval);
+
+        Camera activeCamera = Camera.main;
+        if (activeCamera == null || player == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < aliveEnemies.Count; index++)
+        {
+            EnemyUnit enemyUnit = aliveEnemies[index];
+            if (enemyUnit == null || !enemyUnit.IsAlive)
+            {
+                continue;
+            }
+
+            if (IsEnemyVisible(enemyUnit.transform.position, activeCamera))
+            {
+                continue;
+            }
+
+            enemyUnit.transform.position = GetOffscreenRepositionPosition(activeCamera);
+            enemyUnit.SetTargetPlayer(player);
+        }
+    }
+
     private List<EnemySpawnRequest> BuildSpawnRequests(EnemyWaveDefinition waveDefinition)
     {
         List<EnemySpawnRequest> requests = new List<EnemySpawnRequest>();
@@ -311,6 +370,94 @@ public class EnemyWaveSpawner : MonoBehaviour
         float maxRadius = Mathf.Max(minRadius, waveDefinition.maxSpawnRadius);
         Vector2 offset = UnityEngine.Random.insideUnitCircle.normalized * UnityEngine.Random.Range(minRadius, maxRadius);
         return center + new Vector3(offset.x, offset.y, 0f);
+    }
+
+    private Vector3 GetOffscreenRepositionPosition(Camera activeCamera)
+    {
+        for (int attempt = 0; attempt < Mathf.Max(1, offscreenPositionSearchAttempts); attempt++)
+        {
+            Vector3 candidate = GetSpawnPosition(currentWaveDefinition);
+            if (!IsEnemyVisible(candidate, activeCamera))
+            {
+                return candidate;
+            }
+        }
+
+        Vector3 center = player != null ? player.position : transform.position;
+        float fallbackRadius = Mathf.Max(currentWaveDefinition.maxSpawnRadius, currentWaveDefinition.minSpawnRadius + 1f, 6f);
+        Vector2 fallbackDirection = UnityEngine.Random.insideUnitCircle.normalized;
+        if (fallbackDirection == Vector2.zero)
+        {
+            fallbackDirection = Vector2.right;
+        }
+
+        return center + (Vector3)(fallbackDirection * fallbackRadius);
+    }
+
+    private bool CanSpawnMoreVisibleEnemies()
+    {
+        if (maxEnemiesVisibleOnScreen <= 0)
+        {
+            return true;
+        }
+
+        Camera activeCamera = Camera.main;
+        if (activeCamera == null)
+        {
+            return true;
+        }
+
+        return GetVisibleAliveEnemyCount(activeCamera) < maxEnemiesVisibleOnScreen;
+    }
+
+    private int GetVisibleAliveEnemyCount(Camera activeCamera)
+    {
+        int count = 0;
+
+        for (int index = 0; index < aliveEnemies.Count; index++)
+        {
+            EnemyUnit enemyUnit = aliveEnemies[index];
+            if (enemyUnit == null || !enemyUnit.IsAlive)
+            {
+                continue;
+            }
+
+            if (IsEnemyVisible(enemyUnit.transform.position, activeCamera))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private bool IsEnemyVisible(Vector3 worldPosition, Camera activeCamera)
+    {
+        if (activeCamera == null)
+        {
+            return false;
+        }
+
+        Vector3 viewportPoint = activeCamera.WorldToViewportPoint(worldPosition);
+        if (viewportPoint.z < 0f)
+        {
+            return false;
+        }
+
+        float margin = Mathf.Max(0f, visibleViewportMargin);
+        return viewportPoint.x >= -margin && viewportPoint.x <= 1f + margin && viewportPoint.y >= -margin && viewportPoint.y <= 1f + margin;
+    }
+
+    private void PruneAliveEnemies()
+    {
+        for (int index = aliveEnemies.Count - 1; index >= 0; index--)
+        {
+            EnemyUnit enemyUnit = aliveEnemies[index];
+            if (enemyUnit == null || !enemyUnit.IsAlive)
+            {
+                aliveEnemies.RemoveAt(index);
+            }
+        }
     }
 
     private void ResolvePlayer()

@@ -36,6 +36,7 @@ public class CharacterManager : MonoBehaviour
     public float offsetY = 2f;
     public Vector3 selectionScale = new Vector3(4f, 4f, 4f);
     public Vector3 sceneSpawnScale = Vector3.one;
+    public Vector3 childContentScale = new Vector3(80, 80, 80); 
     // ─────────────────────────────────────────
     //  DATA
     // ─────────────────────────────────────────
@@ -149,7 +150,7 @@ public class CharacterManager : MonoBehaviour
                 var headsetIns = Instantiate(headset, tempObj.transform);          
                 headsetIns.gameObject.GetComponent<RectTransform>().SetParent(tempObj.gameObject.GetComponent<RectTransform>());
                 headsetIns.gameObject.GetComponent<RectTransform>().anchoredPosition = tempObj.gameObject.GetComponent<RectTransform>().anchoredPosition;
-                headsetIns.gameObject.GetComponent<RectTransform>().localScale = new Vector3(80, 80, 80);
+                headsetIns.gameObject.GetComponent<RectTransform>().localScale = childContentScale;
                 headsetIns.gameObject.SetActive(true);
             }
         }

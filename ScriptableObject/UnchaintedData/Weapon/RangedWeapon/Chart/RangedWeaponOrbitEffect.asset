@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponOrbitEffect
   weaponVisualPrefab: {fileID: 1123022602825757589, guid: cd8744b5c20a14d41b41cb554cbb7c6f, type: 3}
   weaponType: 1
-  projectilePrefab: {fileID: 1123022602825757589, guid: cd8744b5c20a14d41b41cb554cbb7c6f, type: 3}
+  projectilePrefab: {fileID: 1123022602825757589, guid: ef5f5ce25904e5c4ba06698f7484cea4, type: 3}
   cooldownSeconds: 1
   initialDelaySeconds: 0
   attackRange: 12

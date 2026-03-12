@@ -11,6 +11,12 @@ public class TimedReturnToPool : MonoBehaviour
         timer = Mathf.Max(0.01f, lifetime);
     }
 
+    public void SetLifetime(float value)
+    {
+        lifetime = Mathf.Max(0.01f, value);
+        timer = lifetime;
+    }
+
     private void Update()
     {
         timer -= Time.deltaTime;
