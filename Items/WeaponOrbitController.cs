@@ -31,6 +31,7 @@ public class WeaponOrbitController : MonoBehaviour
     private PlayerStats playerStats;
     private int nextEquipOrder;
     private float lastFlipCompensationX = 0f;
+    private bool isPaused;
 
     public int MaxWeaponSlots => Mathf.Max(1, maxWeaponSlots);
     public int EquippedWeaponCount => weaponSlots.Count;
@@ -160,8 +161,47 @@ public class WeaponOrbitController : MonoBehaviour
         }
     }
 
+    public void SetPaused(bool paused)
+    {
+        if (isPaused == paused)
+        {
+            return;
+        }
+
+        isPaused = paused;
+
+        for (int index = 0; index < weaponSlots.Count; index++)
+        {
+            WeaponSlot slot = weaponSlots[index];
+            if (slot == null)
+            {
+                continue;
+            }
+
+            if (slot.attackCoroutine != null)
+            {
+                StopCoroutine(slot.attackCoroutine);
+                slot.attackCoroutine = null;
+            }
+
+            if (slot.visualInstance != null)
+            {
+                slot.visualInstance.SetActive(!paused);
+                if (!paused)
+                {
+                    slot.visualInstance.transform.localRotation = slot.restLocalRotation;
+                }
+            }
+        }
+    }
+
     private void LateUpdate()
     {
+        if (isPaused)
+        {
+            return;
+        }
+
         SyncAnchorRootFlipCompensation();
 
         if (weaponSlots.Count == 0)
@@ -231,26 +271,22 @@ public class WeaponOrbitController : MonoBehaviour
             direction = Vector2.right;
         }
 
-        GameObject projectileObject = Instantiate(projectilePrefab, origin, Quaternion.identity);
+        GameObject projectileObject = PoolManager.Spawn(projectilePrefab, origin, Quaternion.identity, 8);
         if (projectileObject == null)
         {
             return;
         }
 
         WeaponOrbitProjectile projectile = projectileObject.GetComponent<WeaponOrbitProjectile>();
-        if (projectile == null)
-        {
-            projectile = projectileObject.GetComponentInChildren<WeaponOrbitProjectile>(true);
-        }
 
         if (projectile == null)
         {
-            Debug.LogWarning("[WeaponOrbitController] Projectile prefab phải gắn WeaponOrbitProjectile.");
-            Destroy(projectileObject);
-            return;
+            projectile = projectileObject.AddComponent<WeaponOrbitProjectile>();
         }
 
         projectile.Initialize(direction, slot.effect.ProjectileSpeed, slot.effect.GetDamage(playerStats), slot.effect.ProjectileLifetime);
+        projectile.SetKnockback(slot.effect.GetKnockbackForce(playerStats), slot.effect.KnockbackDuration);
+        projectile.SetOwner(playerStats);
     }
 
     private IEnumerator AnimateMeleeAttack(WeaponSlot slot, Transform target)
@@ -316,6 +352,14 @@ public class WeaponOrbitController : MonoBehaviour
         }
 
         float damage = slot.effect.GetDamage(playerStats);
+        float knockbackForce = slot.effect.GetKnockbackForce(playerStats);
+        float knockbackDuration = slot.effect.KnockbackDuration;
+        Vector2 knockbackDirection = ((Vector2)(target.position - origin)).normalized;
+        if (knockbackDirection == Vector2.zero)
+        {
+            knockbackDirection = Vector2.right;
+        }
+
         EnemyUnit enemyUnit = target.GetComponentInParent<EnemyUnit>();
         EnemyHealth enemyHealth = enemyUnit == null ? target.GetComponentInParent<EnemyHealth>() : null;
         EnemyHealthBridge enemyHealthBridge = enemyUnit == null && enemyHealth == null
@@ -324,15 +368,20 @@ public class WeaponOrbitController : MonoBehaviour
 
         if (enemyUnit != null)
         {
-            enemyUnit.TakeDamage(Mathf.RoundToInt(damage));
+            enemyUnit.TakeDamageWithKnockback(Mathf.RoundToInt(damage), knockbackDirection, knockbackForce, knockbackDuration);
         }
         else if (enemyHealth != null)
         {
-            enemyHealth.TakeDamage(damage);
+            enemyHealth.TakeDamageWithKnockback(damage, knockbackDirection, knockbackForce, knockbackDuration);
         }
         else if (enemyHealthBridge != null)
         {
-            enemyHealthBridge.TakeDamage(Mathf.RoundToInt(damage));
+            enemyHealthBridge.TakeDamageWithKnockback(Mathf.RoundToInt(damage), knockbackDirection, knockbackForce, knockbackDuration);
+        }
+
+        if (playerStats != null)
+        {
+            playerStats.ApplyLifeStealFromDamage(damage);
         }
     }
 

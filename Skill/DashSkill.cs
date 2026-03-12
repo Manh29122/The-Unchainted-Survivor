@@ -232,6 +232,8 @@ public class DashSkill : MonoBehaviour
                         enemyHealth.TakeDamage(dashDamage);
                     }
 
+                    playerHealthComponent?.ApplyLifeStealFromDamage(dashDamage);
+
                     hitEnemies.Add(collider.gameObject);
 
                     // Optional: Add hit effect

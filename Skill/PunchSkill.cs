@@ -158,6 +158,8 @@ public class PunchSkill : MonoBehaviour
                             enemyHealth.TakeDamage(punchDamage);
                         }
 
+                        playerStats?.ApplyLifeStealFromDamage(punchDamage);
+
                         if (floatingTextPrefab != null)
                         {
                             GameObject popup = Instantiate(floatingTextPrefab, collider.transform.position, Quaternion.identity);

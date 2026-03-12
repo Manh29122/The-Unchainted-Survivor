@@ -11,6 +11,7 @@ public class FireballBurstProjectile : MonoBehaviour
     private Vector2 direction = Vector2.right;
     private float damage;
     private float lifeTimer;
+    private PlayerStats ownerStats;
 
     public void Initialize(Vector2 travelDirection, float projectileSpeed, float projectileDamage, float projectileLifetime)
     {
@@ -22,6 +23,11 @@ public class FireballBurstProjectile : MonoBehaviour
 
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
+    }
+
+    public void SetOwner(PlayerStats playerStats)
+    {
+        ownerStats = playerStats;
     }
 
     private void OnEnable()
@@ -36,7 +42,10 @@ public class FireballBurstProjectile : MonoBehaviour
         lifeTimer -= Time.deltaTime;
         if (lifeTimer <= 0f)
         {
-            Destroy(gameObject);
+            if (!PoolManager.Return(gameObject))
+            {
+                Destroy(gameObject);
+            }
         }
     }
 
@@ -70,9 +79,14 @@ public class FireballBurstProjectile : MonoBehaviour
             return;
         }
 
+        ownerStats?.ApplyLifeStealFromDamage(damage);
+
         if (destroyOnHit)
         {
-            Destroy(gameObject);
+            if (!PoolManager.Return(gameObject))
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

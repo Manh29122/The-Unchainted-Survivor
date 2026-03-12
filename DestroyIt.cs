@@ -4,6 +4,9 @@ public class DestroyIt : MonoBehaviour
 {
     public void DestroyThis()
     {
-        Destroy(gameObject);
+        if (!PoolManager.Return(gameObject))
+        {
+            Destroy(gameObject);
+        }
     }
 }

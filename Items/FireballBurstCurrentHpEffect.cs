@@ -54,14 +54,14 @@ public class FireballBurstCurrentHpEffect : ItemEffectBase
 		{
 			float angle = angleStep * index;
 			Vector2 direction = Quaternion.Euler(0f, 0f, angle) * Vector2.right;
-			SpawnProjectile(context.OwnerTransform.position, direction, damage);
+			SpawnProjectile(context.OwnerTransform.position, direction, damage, context.PlayerStats);
 		}
 	}
 
-	private void SpawnProjectile(Vector3 origin, Vector2 direction, float damage)
+	private void SpawnProjectile(Vector3 origin, Vector2 direction, float damage, PlayerStats playerStats)
 	{
 		Vector3 spawnPosition = origin + (Vector3)(direction.normalized * spawnOffset);
-		GameObject projectileObject = Instantiate(projectilePrefab, spawnPosition, Quaternion.identity);
+		GameObject projectileObject = PoolManager.Spawn(projectilePrefab, spawnPosition, Quaternion.identity, 8);
 		if (projectileObject == null)
 		{
 			Debug.LogWarning("[FireballBurstCurrentHpEffect] Instantiate projectilePrefab thất bại.");
@@ -77,11 +77,15 @@ public class FireballBurstCurrentHpEffect : ItemEffectBase
 		if (projectile == null)
 		{
 			Debug.LogWarning("[FireballBurstCurrentHpEffect] Fire Ball prefab phải gắn FireballBurstProjectile.");
-			Destroy(projectileObject);
+			if (!PoolManager.Return(projectileObject))
+			{
+				Destroy(projectileObject);
+			}
 			return;
 		}
 
 		projectile.Initialize(direction, projectileSpeed, damage, projectileLifetime);
+		projectile.SetOwner(playerStats);
 	}
 
 	private sealed class FireballBurstCurrentHpEffectHandle : ItemEffectHandle
@@ -113,11 +117,22 @@ public class FireballBurstCurrentHpEffect : ItemEffectBase
 
 		protected override void OnRemoved()
 		{
-			if (coroutineHost != null && firingCoroutine != null)
+			StopFiringLoop();
+		}
+
+		protected override void OnPaused()
+		{
+			StopFiringLoop();
+		}
+
+		protected override void OnResumed()
+		{
+			if (coroutineHost == null || firingCoroutine != null)
 			{
-				coroutineHost.StopCoroutine(firingCoroutine);
-				firingCoroutine = null;
+				return;
 			}
+
+			firingCoroutine = coroutineHost.StartCoroutine(FiringLoop());
 		}
 
 		private IEnumerator FiringLoop()
@@ -134,6 +149,15 @@ public class FireballBurstCurrentHpEffect : ItemEffectBase
 				}
 
 				effect.FireBurst(Context, StackCount);
+			}
+		}
+
+		private void StopFiringLoop()
+		{
+			if (coroutineHost != null && firingCoroutine != null)
+			{
+				coroutineHost.StopCoroutine(firingCoroutine);
+				firingCoroutine = null;
 			}
 		}
 	}

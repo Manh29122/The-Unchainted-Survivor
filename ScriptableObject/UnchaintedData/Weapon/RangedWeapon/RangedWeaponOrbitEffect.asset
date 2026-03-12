@@ -10,19 +10,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6890f41e061b1564f90207e2c96e3418, type: 3}
-  m_Name: WeaponOrbitEffect
+  m_Name: RangedWeaponOrbitEffect
   m_EditorClassIdentifier: Assembly-CSharp::WeaponOrbitEffect
-  weaponVisualPrefab: {fileID: 7637462310452851319, guid: 5fe9817e8e9dbc24c82b2af9fd40aeb8, type: 3}
-  weaponType: 0
-  projectilePrefab: {fileID: 0}
+  weaponVisualPrefab: {fileID: 1123022602825757589, guid: cd8744b5c20a14d41b41cb554cbb7c6f, type: 3}
+  weaponType: 1
+  projectilePrefab: {fileID: 1123022602825757589, guid: cd8744b5c20a14d41b41cb554cbb7c6f, type: 3}
   cooldownSeconds: 1
   initialDelaySeconds: 0
-  attackRange: 2
+  attackRange: 12
   projectileSpeed: 10
   projectileLifetime: 3
   baseDamage: 10
   currentDamagePercent: 0
-  meleeSwingAngle: 60
-  meleeSwingDuration: 0.05
-  meleeReturnDuration: 0.05
+  knockbackForce: 0
+  knockbackDuration: 0.15
+  meleeSwingAngle: 40
+  meleeSwingDuration: 0.12
+  meleeReturnDuration: 0.12
   meleeHitRange: 1.25

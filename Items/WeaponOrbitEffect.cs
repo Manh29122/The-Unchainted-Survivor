@@ -23,6 +23,8 @@ public class WeaponOrbitEffect : ItemEffectBase
     [SerializeField] private float projectileLifetime = 3f;
     [SerializeField] private float baseDamage = 10f;
     [SerializeField] private float currentDamagePercent;
+    [SerializeField] private float knockbackForce;
+    [SerializeField] private float knockbackDuration = 0.15f;
 
     [Header("Melee Swing")]
     [SerializeField] private float meleeSwingAngle = 40f;
@@ -38,6 +40,7 @@ public class WeaponOrbitEffect : ItemEffectBase
     public float AttackRange => attackRange;
     public float ProjectileSpeed => projectileSpeed;
     public float ProjectileLifetime => projectileLifetime;
+    public float KnockbackDuration => Mathf.Max(0f, knockbackDuration);
     public float MeleeSwingAngle => meleeSwingAngle;
     public float MeleeSwingDuration => meleeSwingDuration;
     public float MeleeReturnDuration => meleeReturnDuration;
@@ -63,6 +66,12 @@ public class WeaponOrbitEffect : ItemEffectBase
         }
 
         return Mathf.Max(1f, damage);
+    }
+
+    public float GetKnockbackForce(PlayerStats playerStats)
+    {
+        float playerKnockback = playerStats != null ? Mathf.Max(0f, playerStats.knockback) : 0f;
+        return Mathf.Max(0f, knockbackForce + playerKnockback);
     }
 
     public override ItemEffectHandle CreateHandle(EffectContext context, UnchaintedItemData itemData, int stackCount)
@@ -117,6 +126,16 @@ public class WeaponOrbitEffect : ItemEffectBase
             }
 
             equippedHandles.Clear();
+        }
+
+        protected override void OnPaused()
+        {
+            controller?.SetPaused(true);
+        }
+
+        protected override void OnResumed()
+        {
+            controller?.SetPaused(false);
         }
 
         private void SyncEquippedWeapons(int desiredCount)

@@ -73,6 +73,10 @@ public class PlayerStats : MonoBehaviour
     public float attackRange = 0f;
     public float projectileSpeed = 1f;
 
+    [Header("Combat Effects")]
+    [SerializeField] private float enemyContactKnockbackMultiplier = 1f;
+    [SerializeField] private float enemyContactKnockbackDuration = 0.15f;
+
     [Header("Defense / Utility Stats")]
     public float hpRegen = 0f;
     public float armor = 0f;
@@ -100,6 +104,7 @@ public class PlayerStats : MonoBehaviour
 
     private readonly Dictionary<TemporaryBonusType, Coroutine> activeTemporaryBonuses = new Dictionary<TemporaryBonusType, Coroutine>();
     private float nextDamageAllowedTime = float.NegativeInfinity;
+    private float lifeStealHealRemainder;
 
     // ── Events ───────────────────────────────
     public event Action<int, int> OnExpChanged;     // (current, toNext)
@@ -109,6 +114,7 @@ public class PlayerStats : MonoBehaviour
     public event Action OnStatsChanged;
     public event Action<int> OnDamageDodged;
     public event Action<int> OnDamageTaken;
+    public event Action OnDied;
 
     private void Awake()
     {
@@ -247,6 +253,20 @@ public class PlayerStats : MonoBehaviour
         NotifyStatsChanged();
     }
 
+    public void AddGoldIgnoringMultiplier(int amount)
+    {
+        int finalAmount = Mathf.Max(0, amount);
+        if (finalAmount <= 0)
+        {
+            return;
+        }
+
+        gold += finalAmount;
+        Debug.Log($"[Player] 💰 +{finalAmount} Gold (Total: {gold}) [Ignore Multiplier]");
+        OnGoldChanged?.Invoke(gold);
+        NotifyStatsChanged();
+    }
+
     public bool CanSpendGold(int amount)
     {
         return gold >= Mathf.Max(0, amount);
@@ -288,6 +308,46 @@ public class PlayerStats : MonoBehaviour
             OnHPChanged?.Invoke(currentHP, maxHP);
             NotifyStatsChanged();
         }
+    }
+
+    public int ApplyLifeStealFromDamage(float damageDealt)
+    {
+        float validDamage = Mathf.Max(0f, damageDealt);
+        if (validDamage <= 0f || lifeSteal <= 0f)
+        {
+            return 0;
+        }
+
+        float totalHealing = lifeStealHealRemainder + (validDamage * (lifeSteal / 100f));
+        int healAmount = Mathf.FloorToInt(totalHealing);
+        lifeStealHealRemainder = Mathf.Max(0f, totalHealing - healAmount);
+
+        if (healAmount > 0)
+        {
+            Heal(healAmount);
+        }
+
+        return healAmount;
+    }
+
+    public float GetEnemyContactKnockbackForce()
+    {
+        return Mathf.Max(0f, knockback * Mathf.Max(0f, enemyContactKnockbackMultiplier));
+    }
+
+    public float GetEnemyContactKnockbackDuration()
+    {
+        if (knockback <= 0f)
+        {
+            return 0f;
+        }
+
+        return Mathf.Max(0.01f, enemyContactKnockbackDuration);
+    }
+
+    public int GetHarvestingGoldReward()
+    {
+        return Mathf.Max(0, Mathf.RoundToInt(harvesting));
     }
 
     public void TakeDamage(int damage)
@@ -346,7 +406,11 @@ public class PlayerStats : MonoBehaviour
         return Mathf.Max(0f, nextDamageAllowedTime - Time.time);
     }
 
-    void OnDead() => Debug.Log("[Player] 💀 Dead!");
+    void OnDead()
+    {
+        Debug.Log("[Player] 💀 Dead!");
+        OnDied?.Invoke();
+    }
 
     public void IncreaseMaxHP(int amount, bool healByIncrease = true)
     {

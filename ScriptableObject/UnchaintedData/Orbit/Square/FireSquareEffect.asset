@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b56a71183e565464eb07a99eb79c04af, type: 3}
+  m_Name: FireSquareEffect
+  m_EditorClassIdentifier: Assembly-CSharp::OrbitingProjectileItemEffect
+  projectilePrefab: {fileID: 3462592050218466472, guid: 1a2ba0c813c365845893b267153dc531, type: 3}
+  projectileCount: 1
+  orbitVelocity: 2
+  orbitRadius: 2
+  baseDamage: 10
+  startAngleDegrees: 0
+  destroyProjectileOnHit: 0
+  rotateProjectileVisual: 1
+  addRangedDamageBonus: 1
+  cooldownSeconds: 0
+  activeDurationSeconds: 0
+  activateImmediately: 1
+  additionalProjectileCountPerStack: 1
+  multiplyProjectileCountByStack: 0
+  multiplyDamageByStack: 0
+  multiplyOrbitRadiusByStack: 0
+  multiplyOrbitVelocityByStack: 0

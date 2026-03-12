@@ -16,6 +16,7 @@ public abstract class ItemEffectHandle
     public int StackCount { get; private set; }
     public bool IsApplied { get; private set; }
     public bool IsRemoved { get; private set; }
+    public bool IsPaused { get; private set; }
 
     public void Apply()
     {
@@ -65,9 +66,33 @@ public abstract class ItemEffectHandle
         }
     }
 
+    public void Pause()
+    {
+        if (IsRemoved || !IsApplied || IsPaused)
+        {
+            return;
+        }
+
+        IsPaused = true;
+        OnPaused();
+    }
+
+    public void Resume()
+    {
+        if (IsRemoved || !IsApplied || !IsPaused)
+        {
+            return;
+        }
+
+        IsPaused = false;
+        OnResumed();
+    }
+
     protected abstract void OnApplied();
     protected abstract void OnStackChanged(int previousStackCount, int newStackCount);
     protected abstract void OnRemoved();
+    protected virtual void OnPaused() { }
+    protected virtual void OnResumed() { }
 }
 
 public sealed class DelegatingItemEffectHandle : ItemEffectHandle

@@ -2,50 +2,62 @@
 using UnityEngine;
 
 /// <summary>
-/// Gắn vào prefab bất kỳ để nó tự trả về pool sau lifetime.
-/// PooledObject là base class — kế thừa để tạo Projectile, AoESkill, Buff...
+/// Base pooled object that supports both explicit pool assignment and optional auto-return by lifetime.
 /// </summary>
 public class PooledObject : MonoBehaviour
 {
     [Header("Auto Return")]
     [Tooltip("Tự trả về pool sau X giây. 0 = không tự trả")]
-    public float lifetime = 3f;
+    public float lifetime = 0f;
 
-    // Pool đang quản lý object này (gán bởi SkillSpawner)
-    public ObjectPool OwnerPool { get; set; }
-
-    // Event khi object được kích hoạt lại từ pool
-    public event Action OnSpawned;
-
+    private GameObject sourcePrefab;
     private float lifeTimer;
 
-    // ─────────────────────────────────────────
-    void OnEnable()
+    public ObjectPool OwnerPool { get; set; }
+    public GameObject SourcePrefab => sourcePrefab;
+    public bool IsAssigned => OwnerPool != null;
+
+    public event Action OnSpawned;
+
+    public void AssignPool(ObjectPool objectPool, GameObject prefab)
+    {
+        OwnerPool = objectPool;
+        sourcePrefab = prefab;
+    }
+
+    private void OnEnable()
     {
         lifeTimer = lifetime;
         OnSpawned?.Invoke();
         OnActivated();
     }
 
-    void Update()
+    private void Update()
     {
-        if (lifetime <= 0f) return;
+        if (lifetime <= 0f)
+        {
+            return;
+        }
 
         lifeTimer -= Time.deltaTime;
         if (lifeTimer <= 0f)
+        {
             ReturnToPool();
+        }
     }
 
-    // ─────────────────────────────────────────
-    /// <summary>Trả về pool thủ công (gọi khi skill kết thúc sớm)</summary>
-    public void ReturnToPool()
+    public bool ReturnToPool()
     {
+        if (OwnerPool == null)
+        {
+            return false;
+        }
+
         OnDeactivated();
-        OwnerPool?.Return(gameObject);
+        OwnerPool.Return(gameObject);
+        return true;
     }
 
-    // ─────────────────────────────────────────
-    // Override ở subclass nếu cần logic riêng
     protected virtual void OnActivated() { }
     protected virtual void OnDeactivated() { }
 }

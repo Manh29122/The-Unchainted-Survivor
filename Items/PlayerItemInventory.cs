@@ -68,6 +68,7 @@ public class PlayerItemInventory : MonoBehaviour
     [SerializeField] private PlayerStats playerStats;
 
     private readonly List<ActiveEffectEntry> activeEffects = new List<ActiveEffectEntry>();
+    private bool effectsPaused;
 
     public event Action<UnchaintedItemData, int> OnItemAdded;
     public event Action<UnchaintedItemData, int> OnItemRemoved;
@@ -79,10 +80,20 @@ public class PlayerItemInventory : MonoBehaviour
         {
             playerStats = GetComponent<PlayerStats>();
         }
+
+        if (playerStats != null)
+        {
+            playerStats.OnDied += HandlePlayerDied;
+        }
     }
 
     private void OnDestroy()
     {
+        if (playerStats != null)
+        {
+            playerStats.OnDied -= HandlePlayerDied;
+        }
+
         ClearActiveEffects();
     }
 
@@ -211,6 +222,36 @@ public class PlayerItemInventory : MonoBehaviour
     public List<OwnedItemEntry> GetOwnedItems()
     {
         return ownedItems;
+    }
+
+    public void PauseAllEffects()
+    {
+        if (effectsPaused)
+        {
+            return;
+        }
+
+        effectsPaused = true;
+
+        for (int index = 0; index < activeEffects.Count; index++)
+        {
+            activeEffects[index].handle?.Pause();
+        }
+    }
+
+    public void ResumeAllEffects()
+    {
+        if (!effectsPaused)
+        {
+            return;
+        }
+
+        effectsPaused = false;
+
+        for (int index = 0; index < activeEffects.Count; index++)
+        {
+            activeEffects[index].handle?.Resume();
+        }
     }
 
     public void ClearInventory()
@@ -408,6 +449,12 @@ public class PlayerItemInventory : MonoBehaviour
 
                 activeEffects.Add(activeEntry);
                 handle.Apply();
+
+                if (effectsPaused)
+                {
+                    handle.Pause();
+                }
+
                 continue;
             }
 
@@ -458,5 +505,10 @@ public class PlayerItemInventory : MonoBehaviour
         }
 
         activeEffects.Remove(activeEntry);
+    }
+
+    private void HandlePlayerDied()
+    {
+        PauseAllEffects();
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public class EnemyWaveSpawner : MonoBehaviour
@@ -16,6 +17,9 @@ public class EnemyWaveSpawner : MonoBehaviour
     [SerializeField] private Transform player;
     [SerializeField] private ShopRerollSystem shopRerollSystem;
     [SerializeField] private ShopRerollUI shopRerollUI;
+    [SerializeField] private PlayerStats playerStats;
+    [SerializeField] private PlayerItemInventory playerItemInventory;
+    [SerializeField] private string playerVisualRootName = "UnitRoot";
 
     [Header("Wave Settings")]
     [SerializeField] private List<EnemyWaveDefinition> waves = new List<EnemyWaveDefinition>();
@@ -23,6 +27,7 @@ public class EnemyWaveSpawner : MonoBehaviour
     [SerializeField] private bool autoAdvanceWave = true;
     [SerializeField] private int startWaveIndex;
     [SerializeField] private bool openShopBetweenWaves = true;
+    [SerializeField] private int enemyPoolPreload = 16;
 
     private readonly List<EnemyUnit> aliveEnemies = new List<EnemyUnit>();
     private readonly Dictionary<int, List<EnemyUnit>> waveAliveEnemies = new Dictionary<int, List<EnemyUnit>>();
@@ -31,6 +36,7 @@ public class EnemyWaveSpawner : MonoBehaviour
     private float currentWaveDuration;
     private float currentWaveEndTime;
     private bool isWaveActive;
+    private GameObject playerVisualRoot;
 
     public event Action<int> OnWaveStarted;
     public event Action<int> OnWaveCompleted;
@@ -104,6 +110,8 @@ public class EnemyWaveSpawner : MonoBehaviour
         currentWaveDuration = Mathf.Max(0f, waves[waveIndex].waveDuration);
         currentWaveEndTime = currentWaveDuration > 0f ? Time.time + currentWaveDuration : float.PositiveInfinity;
         isWaveActive = true;
+        SetPlayerVisualVisible(true);
+        ResumePlayerEffects();
 
         if (shopRerollUI != null)
         {
@@ -175,9 +183,12 @@ public class EnemyWaveSpawner : MonoBehaviour
 
         isWaveActive = false;
         currentWaveEndTime = 0f;
+        SetPlayerVisualVisible(false);
+        PausePlayerEffects();
         OnWaveTimerUpdated?.Invoke(waveIndex, 0f, currentWaveDuration);
         OnWaveCompleted?.Invoke(waveIndex);
         waveRoutine = null;
+        GrantHarvestingGoldReward();
 
         bool hasNextWave = waveIndex + 1 < waves.Count;
         if (hasNextWave && openShopBetweenWaves)
@@ -205,7 +216,11 @@ public class EnemyWaveSpawner : MonoBehaviour
         ResolvePlayer();
 
         Vector3 spawnPosition = GetSpawnPosition(waveDefinition);
-        GameObject enemyObject = Instantiate(request.enemyPrefab, spawnPosition, Quaternion.identity);
+        GameObject enemyObject = PoolManager.Spawn(request.enemyPrefab, spawnPosition, Quaternion.identity, enemyPoolPreload);
+        if (enemyObject == null)
+        {
+            return;
+        }
 
         EnemyUnit enemyUnit = enemyObject.GetComponent<EnemyUnit>();
         if (enemyUnit == null)
@@ -325,6 +340,28 @@ public class EnemyWaveSpawner : MonoBehaviour
         {
             shopRerollUI = FindFirstObjectByType<ShopRerollUI>(FindObjectsInactive.Include);
         }
+
+        if (playerStats == null)
+        {
+            playerStats = player != null ? player.GetComponent<PlayerStats>() : null;
+        }
+
+        if (playerStats == null)
+        {
+            playerStats = FindFirstObjectByType<PlayerStats>();
+        }
+
+        if (playerItemInventory == null)
+        {
+            playerItemInventory = player != null ? player.GetComponent<PlayerItemInventory>() : null;
+        }
+
+        if (playerItemInventory == null)
+        {
+            playerItemInventory = FindFirstObjectByType<PlayerItemInventory>();
+        }
+
+        ResolvePlayerVisualRoot();
     }
 
     private int GetAliveEnemyCountForWave(int waveIndex)
@@ -358,7 +395,10 @@ public class EnemyWaveSpawner : MonoBehaviour
             }
 
             enemyUnit.OnDied -= HandleEnemyDied;
-            Destroy(enemyUnit.gameObject);
+            if (!PoolManager.Return(enemyUnit.gameObject))
+            {
+                Destroy(enemyUnit.gameObject);
+            }
         }
 
         aliveEnemies.Clear();
@@ -389,5 +429,69 @@ public class EnemyWaveSpawner : MonoBehaviour
 
         shopRerollUI.OpenShop();
         return true;
+    }
+
+    private void GrantHarvestingGoldReward()
+    {
+        if (playerStats == null)
+        {
+            return;
+        }
+
+        int harvestingGoldReward = playerStats.GetHarvestingGoldReward();
+        if (harvestingGoldReward <= 0)
+        {
+            return;
+        }
+
+        playerStats.AddGoldIgnoringMultiplier(harvestingGoldReward);
+    }
+
+    private void ResolvePlayerVisualRoot()
+    {
+        if (playerVisualRoot != null)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(playerVisualRootName))
+        {
+            playerVisualRoot = GameObject.Find(playerVisualRootName);
+        }
+
+        if (playerVisualRoot != null)
+        {
+            return;
+        }
+
+        Transform[] sceneTransforms = Resources.FindObjectsOfTypeAll<Transform>();
+        playerVisualRoot = sceneTransforms
+            .FirstOrDefault(t => t != null && t.name == playerVisualRootName && t.gameObject.scene.IsValid())
+            ?.gameObject;
+    }
+
+    private void SetPlayerVisualVisible(bool visible)
+    {
+        ResolvePlayerVisualRoot();
+
+        if (playerVisualRoot == null)
+        {
+            return;
+        }
+
+        if (playerVisualRoot.activeSelf != visible)
+        {
+            playerVisualRoot.SetActive(visible);
+        }
+    }
+
+    private void PausePlayerEffects()
+    {
+        playerItemInventory?.PauseAllEffects();
+    }
+
+    private void ResumePlayerEffects()
+    {
+        playerItemInventory?.ResumeAllEffects();
     }
 }

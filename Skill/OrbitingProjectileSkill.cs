@@ -13,6 +13,7 @@ public class OrbitingProjectileSkill : MonoBehaviour
     [SerializeField] private float projectileDamage = 50f;
     [Tooltip("Starting offset angle for the first projectile, in degrees")]
     [SerializeField] private float startAngle = 0f; // degrees
+    [SerializeField] private int projectilePoolPreload = 8;
 
     [Header("Skill Settings")]
     [SerializeField] private float cooldownTime = 5f;
@@ -80,7 +81,7 @@ public class OrbitingProjectileSkill : MonoBehaviour
         {
             if (projectilePrefab != null)
             {
-                GameObject proj = Instantiate(projectilePrefab, transform.position, Quaternion.identity);
+                GameObject proj = PoolManager.Spawn(projectilePrefab, transform.position, Quaternion.identity, projectilePoolPreload);
                 projectiles.Add(proj);
                 float angleDeg = startAngle + ((360f / quantity) * i);
                 angles.Add(angleDeg * Mathf.Deg2Rad); // even spacing with offset
@@ -128,7 +129,10 @@ public class OrbitingProjectileSkill : MonoBehaviour
         {
             if (proj != null)
             {
-                Destroy(proj);
+                if (!PoolManager.Return(proj))
+                {
+                    Destroy(proj);
+                }
             }
         }
         projectiles.Clear();

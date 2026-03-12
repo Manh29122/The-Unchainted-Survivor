@@ -21,6 +21,16 @@ public class FloatingText : MonoBehaviour
         rectTransform = transform as RectTransform;
     }
 
+    private void OnEnable()
+    {
+        elapsed = 0f;
+
+        if (tmp == null)
+        {
+            tmp = GetComponent<TMP_Text>();
+        }
+    }
+
     public void SetText(string message, Color color)
     {
         if (tmp == null) tmp = GetComponent<TMP_Text>();
@@ -51,7 +61,10 @@ public class FloatingText : MonoBehaviour
 
         if (elapsed >= duration)
         {
-            Destroy(gameObject);
+            if (!PoolManager.Return(gameObject))
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

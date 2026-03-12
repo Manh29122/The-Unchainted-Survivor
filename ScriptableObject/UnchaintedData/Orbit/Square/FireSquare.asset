@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 019cc57c4d11253419f95454c856b4ea, type: 3}
+  m_Name: FireSquare
+  m_EditorClassIdentifier: Assembly-CSharp::UnchaintedItemData
+  itemId: 9
+  itemName: Fire Square
+  description: Orbitting Around Hero
+  icon: {fileID: 0}
+  tier: 4
+  price: 25
+  maxStacks: 9
+  statModifiers:
+  - statType: 24
+    value: 50
+    valueType: 1
+    note: 
+  specialEffects:
+  - {fileID: 11400000, guid: 13ea47e4b9b613f4e93e4d2c7d3699f7, type: 2}

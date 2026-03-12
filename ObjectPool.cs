@@ -39,6 +39,11 @@ public class ObjectPool
             ? available.Dequeue()
             : CreateNew();             // Pool cạn → tạo thêm tự động
 
+        if (parent != null)
+        {
+            obj.transform.SetParent(parent, false);
+        }
+
         obj.transform.SetPositionAndRotation(position, rotation);
         obj.SetActive(true);
         inUse.Add(obj);
@@ -56,6 +61,11 @@ public class ObjectPool
         {
             Debug.LogWarning($"[Pool] Object '{obj.name}' không thuộc pool này!");
             return;
+        }
+
+        if (parent != null)
+        {
+            obj.transform.SetParent(parent, false);
         }
 
         obj.SetActive(false);
@@ -77,6 +87,14 @@ public class ObjectPool
     {
         var obj = Object.Instantiate(prefab, parent);
         obj.name = $"{prefab.name}_pooled_{TotalCreated++}";
+
+        PooledObject pooledObject = obj.GetComponent<PooledObject>();
+        if (pooledObject == null)
+        {
+            pooledObject = obj.AddComponent<PooledObject>();
+        }
+
+        pooledObject.AssignPool(this, prefab);
         obj.SetActive(false);
         return obj;
     }

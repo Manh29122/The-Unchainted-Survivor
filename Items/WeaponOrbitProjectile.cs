@@ -11,6 +11,9 @@ public class WeaponOrbitProjectile : MonoBehaviour
     private Vector2 direction = Vector2.right;
     private float damage;
     private float lifeTimer;
+    private PlayerStats ownerStats;
+    private float knockbackForce;
+    private float knockbackDuration;
 
     public void Initialize(Vector2 travelDirection, float projectileSpeed, float projectileDamage, float projectileLifetime)
     {
@@ -22,6 +25,17 @@ public class WeaponOrbitProjectile : MonoBehaviour
 
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
+    }
+
+    public void SetOwner(PlayerStats playerStats)
+    {
+        ownerStats = playerStats;
+    }
+
+    public void SetKnockback(float force, float duration)
+    {
+        knockbackForce = Mathf.Max(0f, force);
+        knockbackDuration = Mathf.Max(0f, duration);
     }
 
     private void OnEnable()
@@ -36,7 +50,10 @@ public class WeaponOrbitProjectile : MonoBehaviour
         lifeTimer -= Time.deltaTime;
         if (lifeTimer <= 0f)
         {
-            Destroy(gameObject);
+            if (!PoolManager.Return(gameObject))
+            {
+                Destroy(gameObject);
+            }
         }
     }
 
@@ -52,27 +69,33 @@ public class WeaponOrbitProjectile : MonoBehaviour
         EnemyHealthBridge enemyHealthBridge = enemyUnit == null && enemyHealth == null
             ? collision.GetComponentInParent<EnemyHealthBridge>()
             : null;
+        Vector2 knockbackDirection = direction.sqrMagnitude > 0f ? direction.normalized : Vector2.right;
 
         if (enemyUnit != null)
         {
-            enemyUnit.TakeDamage(Mathf.RoundToInt(damage));
+            enemyUnit.TakeDamageWithKnockback(Mathf.RoundToInt(damage), knockbackDirection, knockbackForce, knockbackDuration);
         }
         else if (enemyHealth != null)
         {
-            enemyHealth.TakeDamage(damage);
+            enemyHealth.TakeDamageWithKnockback(damage, knockbackDirection, knockbackForce, knockbackDuration);
         }
         else if (enemyHealthBridge != null)
         {
-            enemyHealthBridge.TakeDamage(Mathf.RoundToInt(damage));
+            enemyHealthBridge.TakeDamageWithKnockback(Mathf.RoundToInt(damage), knockbackDirection, knockbackForce, knockbackDuration);
         }
         else
         {
             return;
         }
 
+        ownerStats?.ApplyLifeStealFromDamage(damage);
+
         if (destroyOnHit)
         {
-            Destroy(gameObject);
+            if (!PoolManager.Return(gameObject))
+            {
+                Destroy(gameObject);
+            }
         }
     }
 }

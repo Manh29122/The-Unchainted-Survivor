@@ -8,6 +8,7 @@ public class ProjectileDamage : MonoBehaviour
     [SerializeField] private bool destroyOnHit = false;
 
     private OrbitingProjectileSkill ownerSkill;
+    private PlayerStats ownerStats;
 
     public void SetDamage(float dmg)
     {
@@ -17,6 +18,18 @@ public class ProjectileDamage : MonoBehaviour
     public void SetOwner(OrbitingProjectileSkill skill)
     {
         ownerSkill = skill;
+        ownerStats = ownerSkill != null ? ownerSkill.GetComponentInParent<PlayerStats>() : null;
+    }
+
+    public void SetOwner(PlayerStats playerStats)
+    {
+        ownerSkill = null;
+        ownerStats = playerStats;
+    }
+
+    public void SetDestroyOnHit(bool shouldDestroyOnHit)
+    {
+        destroyOnHit = shouldDestroyOnHit;
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
@@ -37,11 +50,21 @@ public class ProjectileDamage : MonoBehaviour
                     enemyHealth.TakeDamage(damage);
                 }
 
+                if (ownerStats == null)
+                {
+                    ownerStats = FindFirstObjectByType<PlayerStats>();
+                }
+
+                ownerStats?.ApplyLifeStealFromDamage(damage);
+
                 Debug.Log($"Projectile hit enemy for {damage} damage!");
 
                 if (destroyOnHit)
                 {
-                    Destroy(gameObject);
+                    if (!PoolManager.Return(gameObject))
+                    {
+                        Destroy(gameObject);
+                    }
                 }
             }
         }

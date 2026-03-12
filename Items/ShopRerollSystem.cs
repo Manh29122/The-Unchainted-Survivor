@@ -260,6 +260,7 @@ public class ShopRerollSystem : MonoBehaviour
     private List<UnchaintedItemData> GetAvailableItems(HashSet<string> excludedItemIds, HashSet<UnchaintedItemData> excludedItems)
     {
         List<UnchaintedItemData> availableItems = new List<UnchaintedItemData>();
+        UnchaintedItemData lockedOrbitingProjectileItem = GetLockedOrbitingProjectileItem();
 
         foreach (UnchaintedItemData item in itemPool)
         {
@@ -273,6 +274,11 @@ public class ShopRerollSystem : MonoBehaviour
                 continue;
             }
 
+            if (lockedOrbitingProjectileItem != null && HasOrbitingProjectileEffect(item) && item != lockedOrbitingProjectileItem)
+            {
+                continue;
+            }
+
             if (playerInventory != null && playerInventory.GetStackCount(item) >= Mathf.Max(1, item.maxStacks))
             {
                 continue;
@@ -282,6 +288,54 @@ public class ShopRerollSystem : MonoBehaviour
         }
 
         return availableItems;
+    }
+
+    private UnchaintedItemData GetLockedOrbitingProjectileItem()
+    {
+        if (playerInventory == null)
+        {
+            return null;
+        }
+
+        List<PlayerItemInventory.OwnedItemEntry> ownedEntries = playerInventory.GetOwnedItems();
+        if (ownedEntries == null)
+        {
+            return null;
+        }
+
+        for (int index = 0; index < ownedEntries.Count; index++)
+        {
+            PlayerItemInventory.OwnedItemEntry ownedEntry = ownedEntries[index];
+            if (ownedEntry == null || ownedEntry.itemData == null || ownedEntry.stackCount <= 0)
+            {
+                continue;
+            }
+
+            if (HasOrbitingProjectileEffect(ownedEntry.itemData))
+            {
+                return ownedEntry.itemData;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasOrbitingProjectileEffect(UnchaintedItemData itemData)
+    {
+        if (itemData == null || itemData.specialEffects == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < itemData.specialEffects.Count; index++)
+        {
+            if (itemData.specialEffects[index] is OrbitingProjectileItemEffect)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private UnchaintedItemData RollReplacementItem(int replacedOfferIndex, UnchaintedItemData previousItem)

@@ -29,6 +29,10 @@ public class EnemyUnit : MonoBehaviour
     [SerializeField] private int healthDropCount = 1;
     [SerializeField] private bool alsoUseRandomDropTable;
 
+    [Header("Player Proximity Knockback")]
+    [SerializeField] private bool enablePlayerContactKnockback;
+    [SerializeField] private float playerKnockbackCooldown = 0.15f;
+
     private EnemyRuntimeData runtimeData;
     private int currentHealth;
     private bool isDead;
@@ -39,6 +43,7 @@ public class EnemyUnit : MonoBehaviour
     private float knockbackDuration;
     private float knockbackTimer;
     private bool hasSpawnedDeathDrops;
+    private float nextPlayerKnockbackAllowedTime = float.NegativeInfinity;
 
     public event Action<EnemyUnit, int> OnDamaged;
     public event Action<EnemyUnit> OnDied;
@@ -240,6 +245,11 @@ public class EnemyUnit : MonoBehaviour
         }
 
         playerStats.TakeDamage(runtimeData.contactDamage);
+
+        if (enablePlayerContactKnockback)
+        {
+            TryApplyPlayerProximityKnockback(playerStats, otherTransform);
+        }
     }
 
     private void ResolvePlayer()
@@ -264,6 +274,36 @@ public class EnemyUnit : MonoBehaviour
         knockbackForce = 0f;
         knockbackDuration = 0f;
         knockbackTimer = 0f;
+        nextPlayerKnockbackAllowedTime = float.NegativeInfinity;
+    }
+
+    private void TryApplyPlayerProximityKnockback(PlayerStats playerStats, Transform playerTransform)
+    {
+        if (playerStats == null || playerTransform == null)
+        {
+            return;
+        }
+
+        if (Time.time < nextPlayerKnockbackAllowedTime)
+        {
+            return;
+        }
+
+        float force = playerStats.GetEnemyContactKnockbackForce();
+        float duration = playerStats.GetEnemyContactKnockbackDuration();
+        if (force <= 0f || duration <= 0f)
+        {
+            return;
+        }
+
+        Vector2 direction = (Vector2)(transform.position - playerTransform.position);
+        if (direction == Vector2.zero)
+        {
+            direction = Vector2.up;
+        }
+
+        ApplyKnockback(direction, force, duration);
+        nextPlayerKnockbackAllowedTime = Time.time + Mathf.Max(0.01f, playerKnockbackCooldown);
     }
 
     private void Die()
@@ -283,6 +323,11 @@ public class EnemyUnit : MonoBehaviour
         SpawnDeathDrops();
 
         OnDied?.Invoke(this);
+
+        if (PoolManager.Return(gameObject))
+        {
+            return;
+        }
 
         if (destroyOnDeath)
         {
